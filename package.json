@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "crawl": "tsx scripts/crawl.ts",
+    "score": "tsx scripts/score.ts",
     "postinstall": "[ -f node_modules/google-play-scraper/index.d.ts ] && mv node_modules/google-play-scraper/index.d.ts node_modules/google-play-scraper/index.d.ts.bak || true"
   },
   "dependencies": {

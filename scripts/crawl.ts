@@ -1,5 +1,6 @@
 import gplay from "google-play-scraper";
 import { prisma } from "../src/lib/prisma";
+import { estimateMrr, calculateOpportunityScore } from "../src/lib/scoring";
 
 const TARGET_CATEGORIES = [
   { label: "Productivity", id: gplay.category.PRODUCTIVITY },
@@ -138,6 +139,32 @@ async function saveCompetitors(appId: string) {
   }
 }
 
+async function scoreApp(appId: string) {
+  const app = await prisma.app.findUnique({
+    where: { id: appId },
+    include: { reviews: true, competitors: true },
+  });
+  if (!app) return;
+
+  const mrr = estimateMrr(app);
+  const negativeReviews = app.reviews.filter((r) => r.rating <= 2).length;
+  const negativeReviewRatio = app.reviews.length > 0 ? negativeReviews / app.reviews.length : 0;
+
+  const score = calculateOpportunityScore({
+    estimatedMrr: mrr,
+    negativeReviewRatio,
+    competitorCount: app.competitors.length,
+    descriptionLength: app.description.length,
+  });
+
+  await prisma.app.update({
+    where: { id: appId },
+    data: { estimatedMrr: mrr, opportunityScore: score },
+  });
+
+  console.log(`  MRR: $${mrr}  Score: ${score}`);
+}
+
 async function crawl() {
   console.log("Starting crawl...\n");
 
@@ -170,6 +197,7 @@ async function crawl() {
         await saveApp(app);
         await saveReviews(app.appId);
         await saveCompetitors(app.appId);
+        await scoreApp(app.appId);
         totalSaved++;
       }
     } catch (err) {
@@ -200,6 +228,7 @@ async function crawl() {
         await saveApp(app);
         await saveReviews(app.appId);
         await saveCompetitors(app.appId);
+        await scoreApp(app.appId);
         totalSaved++;
       }
     } catch (err) {
