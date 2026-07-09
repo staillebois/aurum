@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model App {
+  id            String   @id @default(cuid())
+  name          String
+  icon          String
+  description   String
+  publisher     String
+  category      String
+  downloads     Int
+  price         Float    @default(0)
+  hasIap        Boolean  @default(false)
+  hasSubscriptions Boolean @default(false)
+  rating        Float
+  reviewCount   Int
+  estimatedMrr  Float?
+  opportunityScore Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reviews      Review[]
+  competitors  Competitor[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  appId     String
+  text      String
+  rating    Int
+  userName  String?
+  createdAt DateTime @default(now())
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+}
+
+model Competitor {
+  id            String  @id @default(cuid())
+  appId         String
+  name          String
+  icon          String?
+  downloads     Int?
+  estimatedMrr  Float?
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+}

@@ -1,5 +1,5 @@
 {
-  "name": "aurum-tmp",
+  "name": "aurum",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.4",
+    "@prisma/adapter-libsql": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "dotenv": "^17.4.2",
     "next": "16.2.10",
+    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
