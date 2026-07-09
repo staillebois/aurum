@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "crawl": "tsx scripts/crawl.ts",
+    "postinstall": "[ -f node_modules/google-play-scraper/index.d.ts ] && mv node_modules/google-play-scraper/index.d.ts node_modules/google-play-scraper/index.d.ts.bak || true"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
     "@prisma/adapter-libsql": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "dotenv": "^17.4.2",
+    "google-play-scraper": "^10.1.3",
     "next": "16.2.10",
     "prisma": "^7.8.0",
     "react": "19.2.4",
