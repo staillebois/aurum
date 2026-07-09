@@ -84,19 +84,19 @@ Dashboard (TailwindCSS)
 
 ---
 
-### Phase 4 — AI Analysis
+### Phase 4 — AI Analysis (via Ollama)
 
 **Tasks:**
-- [ ] Integrate OpenAI API
-- [ ] Analyze reviews → summary, pain points, improvements
-- [ ] Competitor detection (via OpenAI or category similarity)
-- [ ] Save results to database
+- [x] Integrate Ollama API (local, no API key required)
+- [x] Analyze reviews → summary, pain points, improvements
+- [x] Competitor detection (via category similarity)
+- [x] Save results to database
 
 **Validation:**
-- [ ] OpenAI call succeeds with a valid key
-- [ ] Every app has a summary, pain points, and improvements
-- [ ] Competitors are real apps from the dataset
-- [ ] Results are stored and retrievable from the database
+- [x] Ollama call succeeds (tested with qwen2.5-coder:7b)
+- [x] Every app has a summary, pain points, and improvements
+- [x] Competitors are real apps from the dataset
+- [x] Results are stored and retrievable from the database
 
 ---
 
