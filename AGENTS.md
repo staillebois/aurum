@@ -3,3 +3,9 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+# Commit convention
+
+Use conventional commits: `type(scope): description`.  
+Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `style`, `test`.  
+Scope is optional but encouraged (e.g., `phase 2`, `crawler`, `db`).
