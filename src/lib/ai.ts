@@ -38,32 +38,34 @@ function buildAnalysisPrompt(appName: string, description: string, reviews: stri
 App name: ${appName}
 Description: ${description.slice(0, 3000)}${reviewBlock}
 
-Provide your analysis in the exact format below. Use plain text only — no markdown formatting like ###, **, or \`\`\`. Do NOT add extra sections or commentary.
+Provide exactly 3-5 specific pain points and 3-5 specific improvement ideas based on the app description and user reviews. Use plain text only — no markdown formatting like ###, **, or \`\`\`. Do NOT add extra sections or commentary.
+
+Format:
 
 SUMMARY: <2-3 sentence summary of what the app does and its monetization>
 
 PAIN POINTS:
-- <pain point 1>
-- <pain point 2>
-- <pain point 3>
+- <specific pain point 1 based on reviews>
+- <specific pain point 2 based on reviews>
+- <specific pain point 3 based on reviews>
 
 IMPROVEMENTS:
-- <improvement suggestion 1>
-- <improvement suggestion 2>
-- <improvement suggestion 3>
+- <specific improvement 1 addressing the pain points>
+- <specific improvement 2 addressing the pain points>
+- <specific improvement 3 addressing the pain points>
 
-Example:
-SUMMARY: OneDrive is a cloud storage and file synchronization service by Microsoft. It offers freemium plans with paid storage upgrades and Microsoft 365 integration.
+Example for Spotify:
+SUMMARY: Spotify is a music and podcast streaming service operating on a freemium model with ads on the free tier and a premium subscription for offline listening and higher quality audio.
 PAIN POINTS:
-- Slow file loading times
-- Frequent sync conflicts
-- Limited free storage space
+- Too many ads disrupting the listening experience
+- Podcast player interface is clunky and hard to navigate
+- Frequent logout issues requiring repeated login
 IMPROVEMENTS:
-- Optimize file loading algorithms
-- Improve conflict resolution UI
-- Increase free tier storage
+- Reduce ad frequency or offer lower-priced ad-light tier
+- Redesign podcast player with better navigation and playback controls
+- Fix session management to prevent random logouts
 
-You MUST include all three sections. Start with SUMMARY:. Use bullet points (- ) for PAIN POINTS and IMPROVEMENTS.`;
+You MUST include at least 3 items in PAIN POINTS and at least 3 items in IMPROVEMENTS. Start with SUMMARY:. Use bullet points (-) for PAIN POINTS and IMPROVEMENTS. Be specific to this app — do not use generic statements that could apply to any app.`;
 }
 
 const SECTION_ALIASES: Record<string, string[]> = {
