@@ -15,7 +15,7 @@ async function ollamaChat(prompt: string): Promise<string> {
       model: OLLAMA_MODEL,
       prompt,
       stream: false,
-      options: { temperature: 0.3, num_predict: 2048 },
+      options: { temperature: 0.3, num_predict: 4096 },
     }),
   });
 
@@ -38,7 +38,7 @@ function buildAnalysisPrompt(appName: string, description: string, reviews: stri
 App name: ${appName}
 Description: ${description.slice(0, 3000)}${reviewBlock}
 
-Provide your analysis in this exact format:
+Provide your analysis in this exact format — do NOT use markdown formatting, do NOT add extra sections:
 
 SUMMARY: <2-3 sentence summary of what the app does and its monetization>
 
@@ -52,26 +52,50 @@ IMPROVEMENTS:
 - <improvement suggestion 2>
 - <improvement suggestion 3>
 
-Focus on actionable insights for a competitor.`;
+You MUST include all three sections exactly as shown. Start your response with "SUMMARY:". Focus on actionable insights for a competitor.`;
 }
 
 function parseSection(raw: string, sectionName: string): string[] {
-  const escaped = sectionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `(?:^|\\n)\\*{0,2}\\s*${escaped}\\s*\\*{0,2}:?\\s*\\n([\\s\\S]*?)(?=\\n\\*{0,2}[A-Z]+[A-Z\\s]+:\\s*\\n|$)`,
-    "i",
-  );
-  const match = raw.match(pattern);
-  if (!match) return [];
+  const names = [sectionName];
 
-  return match[1]
-    .split("\n")
-    .map((l) => l.replace(/^[-*\d.\s]+/, "").trim())
-    .filter((l) => l.length > 0 && !/^[A-Z][A-Z\s]+:\s*$/.test(l));
+  if (sectionName === "IMPROVEMENTS") {
+    names.push("Improvement Ideas");
+  }
+
+  let nextPattern = "";
+  if (sectionName === "PAIN POINTS") {
+    const next = ["IMPROVEMENTS", "Improvement Ideas"];
+    const escaped = next.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    nextPattern = `\\n#{0,6}\\s*\\*{0,2}\\s*(?:${escaped.join("|")})\\s*\\*{0,2}:?\\s*\\n?`;
+  }
+
+  const lookahead = nextPattern ? `(?=${nextPattern}|$)` : "(?=$)";
+
+  for (const name of names) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(
+      `(?:^|\\n)#{0,6}\\s*\\*{0,2}\\s*${escaped}\\s*\\*{0,2}:?\\s*\\n?` +
+      `([\\s\\S]*?)` +
+      lookahead,
+      "im"
+    );
+
+    const match = raw.match(pattern);
+    if (!match) continue;
+
+    return match[1]
+      .split("\n")
+      .map((l) => l.replace(/^[-*\d.\s]+/, "").trim())
+      .filter((l) => l.length > 0);
+  }
+
+  return [];
 }
 
 function parseAnalysis(raw: string): AiAnalysis {
-  const summaryMatch = raw.match(/SUMMARY:\s*([\s\S]+?)(?=\n\*{0,2}[A-Z]|$)/i);
+  const summaryMatch = raw.match(
+    /(?:^|\n)#{0,6}\s*\*{0,2}\s*SUMMARY\s*\*{0,2}:?\s*\n?\s*([\s\S]*?)(?=\n#{0,6}\s*\*{0,2}\s*(?:PAIN POINTS|Pain Points)\s*\*{0,2}:?\s*\n?|$)/im
+  );
   const summary = summaryMatch ? summaryMatch[1].trim() : "No summary generated.";
 
   const painPoints = parseSection(raw, "PAIN POINTS");
