@@ -110,7 +110,19 @@ function parseSection(raw: string, sectionName: string): string[] {
   return [];
 }
 
+function stripThinkBlocks(raw: string): string {
+  // Remove <think>...</think> blocks (DeepSeek R1 / qwen3:8b style)
+  let clean = raw.replace(/<think>[\s\S]*?<\/think>/g, "");
+  // Also handle bare </think> without opening tag
+  const idx = clean.lastIndexOf("</think>");
+  if (idx !== -1) {
+    clean = clean.substring(idx + "</think>".length);
+  }
+  return clean.trim();
+}
+
 function parseAnalysis(raw: string): AiAnalysis {
+  raw = stripThinkBlocks(raw);
   const summaryPattern = new RegExp(
     `(?:^|\\n)#{0,6}\\s*\\*{0,2}\\s*SUMMARY\\s*\\*{0,2}:?\\s*\\n?\\s*` +
     `([\\s\\S]*?)(?=${getNextSectionPattern("SUMMARY")})`,
