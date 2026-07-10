@@ -4,6 +4,7 @@ import { estimateMrr, calculateOpportunityScore } from "../src/lib/scoring";
 import { analyzeApp } from "../src/lib/ai";
 
 const SHOULD_ANALYZE = process.argv.includes("--analyze");
+const SHOULD_REFRESH = process.argv.includes("--refresh");
 
 const TARGET_CATEGORIES = [
   { label: "Productivity", id: gplay.category.PRODUCTIVITY },
@@ -105,6 +106,7 @@ async function saveReviews(appId: string) {
       text: (r.text ?? "").slice(0, 2000),
       rating: r.score ?? 0,
       userName: r.userName ?? null,
+      createdAt: r.date ?? new Date(),
     }));
 
     await prisma.review.createMany({ data: reviews });
@@ -266,6 +268,17 @@ async function crawl() {
     } catch (err) {
       console.error(`  Error searching "${term}":`, (err as Error).message);
     }
+  }
+
+  if (SHOULD_REFRESH) {
+    console.log(`\nRefreshing reviews for ${existing.length} existing apps...`);
+    for (let i = 0; i < existing.length; i++) {
+      const app = existing[i];
+      process.stdout.write(`  [${i + 1}/${existing.length}] ${app.id.slice(0, 30)}...`);
+      await saveReviews(app.id);
+      process.stdout.write(" done\n");
+    }
+    console.log("Review refresh complete.");
   }
 
   console.log(`\nDone! Saved ${totalSaved} apps total.`);
