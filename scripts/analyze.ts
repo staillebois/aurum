@@ -2,7 +2,6 @@ import { prisma } from "../src/lib/prisma";
 import { analyzeApp } from "../src/lib/ai";
 
 const BATCH_SIZE = 1;
-const STATE_FILE = ".analyze-progress.json";
 
 function formatTime(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -16,7 +15,6 @@ function parseArgs() {
   let limit: number | null = null;
   let offset: number | null = null;
   let clean = false;
-  let reset = false;
   let showStatus = false;
 
   for (let i = 0; i < args.length; i++) {
@@ -34,42 +32,14 @@ function parseArgs() {
       case "--stats":
         showStatus = true;
         break;
-      case "--reset":
-        reset = true;
-        break;
     }
   }
 
-  return { limit, offset, clean, reset, showStatus };
-}
-
-function readState(): number | null {
-  try {
-    const data = JSON.parse(require("fs").readFileSync(STATE_FILE, "utf-8"));
-    return typeof data.offset === "number" ? data.offset : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeState(offset: number) {
-  try {
-    require("fs").writeFileSync(STATE_FILE, JSON.stringify({ offset }) + "\n");
-  } catch {
-    // ignore write errors
-  }
-}
-
-function clearState() {
-  try {
-    require("fs").unlinkSync(STATE_FILE);
-  } catch {
-    // ignore
-  }
+  return { limit, offset, clean, showStatus };
 }
 
 async function main() {
-  const { limit, offset: explicitOffset, clean, reset, showStatus } = parseArgs();
+  const { limit, offset: explicitOffset, clean, showStatus } = parseArgs();
 
   if (showStatus) {
     const total = await prisma.app.count();
@@ -95,18 +65,6 @@ async function main() {
       },
     });
     console.log("Done. All analysis fields cleared.\n");
-    clearState();
-  }
-
-  if (reset) {
-    clearState();
-    console.log("Progress state cleared.\n");
-  }
-
-  let currentOffset = explicitOffset ?? readState() ?? 0;
-
-  if (explicitOffset === null && currentOffset > 0) {
-    console.log(`Resuming from offset ${currentOffset} (previous session).\n`);
   }
 
   const totalUnanalyzed = await prisma.app.count({
@@ -123,7 +81,7 @@ async function main() {
     where: { aiSummary: null },
     include: { reviews: true },
     orderBy: { estimatedMrr: "desc" },
-    skip: currentOffset,
+    skip: explicitOffset ?? 0,
     take: limit ?? undefined,
   });
 
@@ -144,8 +102,7 @@ async function main() {
 
   process.on("SIGINT", () => {
     running = false;
-    writeState(currentOffset + analyzed + errors);
-    process.stdout.write("\n\nSaving progress and exiting...\n");
+    process.stdout.write("\n\nGracefully stopping... (apps already saved in DB)\n");
     process.exit(0);
   });
 
@@ -198,8 +155,6 @@ async function main() {
 
     renderProgress(`${analyzed} done, ${errors} errors`);
   }
-
-  writeState(currentOffset + analyzed + errors);
 
   process.stdout.write("\n\n");
   const totalTime = formatTime(Date.now() - startTime);
