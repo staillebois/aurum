@@ -17,6 +17,8 @@ function parseArgs() {
   let clean = false;
   let showStatus = false;
 
+  let reAnalyzeFallback = false;
+
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case "--limit":
@@ -28,6 +30,9 @@ function parseArgs() {
       case "--clean":
         clean = true;
         break;
+      case "--re-analyze-fallback":
+        reAnalyzeFallback = true;
+        break;
       case "--status":
       case "--stats":
         showStatus = true;
@@ -35,11 +40,11 @@ function parseArgs() {
     }
   }
 
-  return { limit, offset, clean, showStatus };
+  return { limit, offset, clean, showStatus, reAnalyzeFallback };
 }
 
 async function main() {
-  const { limit, offset: explicitOffset, clean, showStatus } = parseArgs();
+  const { limit, offset: explicitOffset, clean, showStatus, reAnalyzeFallback } = parseArgs();
 
   if (showStatus) {
     const total = await prisma.app.count();
@@ -65,6 +70,38 @@ async function main() {
       },
     });
     console.log("Done. All analysis fields cleared.\n");
+  }
+
+  if (reAnalyzeFallback) {
+    const fallbackPain = '["No pain points identified."]';
+    const fallbackImprove = '["No improvements suggested."]';
+    const fallbackApps = await prisma.app.findMany({
+      where: {
+        OR: [
+          { painPoints: fallbackPain },
+          { improvements: fallbackImprove },
+        ],
+      },
+      select: { id: true, name: true },
+    });
+    if (fallbackApps.length > 0) {
+      console.log(`Found ${fallbackApps.length} apps with fallback values, clearing for re-analysis:`);
+      for (const app of fallbackApps) {
+        console.log(`  - ${app.name}`);
+      }
+      await prisma.app.updateMany({
+        where: { id: { in: fallbackApps.map((a) => a.id) } },
+        data: {
+          aiSummary: null,
+          painPoints: null,
+          improvements: null,
+          aiAnalyzedAt: null,
+        },
+      });
+      console.log();
+    } else {
+      console.log("No apps with fallback values found.\n");
+    }
   }
 
   const totalUnanalyzed = await prisma.app.count({
