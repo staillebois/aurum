@@ -1,5 +1,5 @@
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5-coder:7b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL ?? "qwen3:8b";
 
 export interface AiAnalysis {
   summary: string;
@@ -7,12 +7,12 @@ export interface AiAnalysis {
   improvements: string[];
 }
 
-async function ollamaChat(prompt: string): Promise<string> {
+async function ollamaChat(prompt: string, model: string): Promise<string> {
   const res = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
+      model,
       prompt,
       stream: false,
       options: { temperature: 0.3, num_predict: 4096 },
@@ -38,7 +38,7 @@ function buildAnalysisPrompt(appName: string, description: string, reviews: stri
 App name: ${appName}
 Description: ${description.slice(0, 3000)}${reviewBlock}
 
-Provide your analysis in this exact format — do NOT use markdown formatting, do NOT add extra sections:
+Provide your analysis in the exact format below. Use plain text only — no markdown formatting like ###, **, or \`\`\`. Do NOT add extra sections or commentary.
 
 SUMMARY: <2-3 sentence summary of what the app does and its monetization>
 
@@ -52,49 +52,61 @@ IMPROVEMENTS:
 - <improvement suggestion 2>
 - <improvement suggestion 3>
 
-You MUST include all three sections exactly as shown. Start your response with "SUMMARY:". Focus on actionable insights for a competitor.`;
+Example:
+SUMMARY: OneDrive is a cloud storage and file synchronization service by Microsoft. It offers freemium plans with paid storage upgrades and Microsoft 365 integration.
+PAIN POINTS:
+- Slow file loading times
+- Frequent sync conflicts
+- Limited free storage space
+IMPROVEMENTS:
+- Optimize file loading algorithms
+- Improve conflict resolution UI
+- Increase free tier storage
+
+You MUST include all three sections. Start with SUMMARY:. Use bullet points (- ) for PAIN POINTS and IMPROVEMENTS.`;
 }
 
+const SECTION_ALIASES: Record<string, string[]> = {
+  "PAIN POINTS": ["PAIN POINTS", "Pain Points", "pain points", "PAIN POINTS:", "Pain Points:"],
+  "IMPROVEMENTS": ["IMPROVEMENTS", "Improvement Ideas", "Improvements", "improvements", "IMPROVEMENTS:", "Improvement Ideas:", "Improvements:"],
+};
+
 function parseSection(raw: string, sectionName: string): string[] {
-  const names = [sectionName];
-
-  if (sectionName === "IMPROVEMENTS") {
-    names.push("Improvement Ideas");
-  }
-
-  let nextPattern = "";
-  if (sectionName === "PAIN POINTS") {
-    const next = ["IMPROVEMENTS", "Improvement Ideas"];
-    const escaped = next.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    nextPattern = `\\n#{0,6}\\s*\\*{0,2}\\s*(?:${escaped.join("|")})\\s*\\*{0,2}:?\\s*\\n?`;
-  }
-
-  const lookahead = nextPattern ? `(?=${nextPattern}|$)` : "(?=$)";
+  const names = SECTION_ALIASES[sectionName] ?? [sectionName];
 
   for (const name of names) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     const pattern = new RegExp(
       `(?:^|\\n)#{0,6}\\s*\\*{0,2}\\s*${escaped}\\s*\\*{0,2}:?\\s*\\n?` +
-      `([\\s\\S]*?)` +
-      lookahead,
+      `([\\s\\S]*?)(?=\\n#{0,6}\\s*\\*{0,2}\\s*(?:${getNextPattern(sectionName)})\\s*\\*{0,2}:?\\s*\\n?|$)`,
       "im"
     );
 
     const match = raw.match(pattern);
     if (!match) continue;
 
-    return match[1]
+    const items = match[1]
       .split("\n")
       .map((l) => l.replace(/^[-*\d.\s]+/, "").trim())
       .filter((l) => l.length > 0);
+
+    if (items.length > 0) return items;
   }
 
   return [];
 }
 
+function getNextPattern(sectionName: string): string {
+  const next = sectionName === "PAIN POINTS" ? Object.values(SECTION_ALIASES).flat().filter((n) => n !== "PAIN POINTS" && n !== "Pain Points" && n !== "pain points") : [];
+  if (next.length === 0) return "";
+  const escaped = next.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return escaped.join("|");
+}
+
 function parseAnalysis(raw: string): AiAnalysis {
   const summaryMatch = raw.match(
-    /(?:^|\n)#{0,6}\s*\*{0,2}\s*SUMMARY\s*\*{0,2}:?\s*\n?\s*([\s\S]*?)(?=\n#{0,6}\s*\*{0,2}\s*(?:PAIN POINTS|Pain Points)\s*\*{0,2}:?\s*\n?|$)/im
+    /(?:^|\n)#{0,6}\s*\*{0,2}\s*SUMMARY\s*\*{0,2}:?\s*\n?\s*([\s\S]*?)(?=\n#{0,6}\s*\*{0,2}\s*(?:PAIN POINTS|Pain Points|pain points)\s*\*{0,2}:?\s*\n?|$)/im
   );
   const summary = summaryMatch ? summaryMatch[1].trim() : "No summary generated.";
 
@@ -112,8 +124,11 @@ export async function analyzeApp(
   appName: string,
   description: string,
   reviews: string[],
+  model?: string,
 ): Promise<AiAnalysis> {
   const prompt = buildAnalysisPrompt(appName, description, reviews);
-  const raw = await ollamaChat(prompt);
+  const raw = await ollamaChat(prompt, model ?? DEFAULT_MODEL);
   return parseAnalysis(raw);
 }
+
+export { DEFAULT_MODEL };

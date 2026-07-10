@@ -24,6 +24,7 @@ interface AiAnalysis {
   summary: string
   painPoints: string[]
   improvements: string[]
+  modelName: string | null
   analyzedAt: string | null
 }
 
@@ -209,11 +210,14 @@ export default function AppDetailPage({
                 </ul>
               </div>
             )}
-            {app.aiAnalysis.analyzedAt && (
-              <p className="text-xs text-zinc-400">
-                Analyzed {new Date(app.aiAnalysis.analyzedAt).toLocaleDateString()}
-              </p>
-            )}
+            <div className="flex gap-3 text-xs text-zinc-400">
+              {app.aiAnalysis.modelName && (
+                <span>Model: {app.aiAnalysis.modelName}</span>
+              )}
+              {app.aiAnalysis.analyzedAt && (
+                <span>Analyzed {new Date(app.aiAnalysis.analyzedAt).toLocaleDateString()}</span>
+              )}
+            </div>
           </div>
         </div>
       )}

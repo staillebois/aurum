@@ -1,5 +1,5 @@
 import { prisma } from "../src/lib/prisma";
-import { analyzeApp } from "../src/lib/ai";
+import { analyzeApp, DEFAULT_MODEL } from "../src/lib/ai";
 
 const BATCH_SIZE = 1;
 
@@ -16,8 +16,8 @@ function parseArgs() {
   let offset: number | null = null;
   let clean = false;
   let showStatus = false;
-
   let reAnalyzeFallback = false;
+  let model: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -37,27 +37,43 @@ function parseArgs() {
       case "--stats":
         showStatus = true;
         break;
+      case "--model":
+        model = args[++i];
+        break;
     }
   }
 
-  return { limit, offset, clean, showStatus, reAnalyzeFallback };
+  return { limit, offset, clean, showStatus, reAnalyzeFallback, model };
 }
 
 async function main() {
-  const { limit, offset: explicitOffset, clean, showStatus, reAnalyzeFallback } = parseArgs();
+  const { limit, offset: explicitOffset, clean, showStatus, reAnalyzeFallback, model } = parseArgs();
+
+  const activeModel = model ?? DEFAULT_MODEL;
 
   if (showStatus) {
     const total = await prisma.app.count();
     const analyzed = await prisma.app.count({ where: { aiSummary: { not: null } } });
     const remaining = total - analyzed;
+    const statuses = await prisma.app.groupBy({
+      by: ["modelName"],
+      where: { aiSummary: { not: null } },
+      _count: true,
+    });
     console.log(`Apps total:      ${total}`);
     console.log(`With aiSummary:  ${analyzed}`);
     console.log(`Without:         ${remaining}`);
+    if (statuses.length > 0) {
+      console.log("\nBy model:");
+      for (const s of statuses) {
+        console.log(`  ${s.modelName ?? "unknown"}: ${s._count}`);
+      }
+    }
     await prisma.$disconnect();
     return;
   }
 
-  console.log("Starting AI analysis of all apps...\n");
+  console.log(`Starting AI analysis using model: ${activeModel}\n`);
 
   if (clean) {
     console.log("Cleaning existing analysis data...");
@@ -66,6 +82,7 @@ async function main() {
         aiSummary: null,
         painPoints: null,
         improvements: null,
+        modelName: null,
         aiAnalyzedAt: null,
       },
     });
@@ -95,6 +112,7 @@ async function main() {
           aiSummary: null,
           painPoints: null,
           improvements: null,
+          modelName: null,
           aiAnalyzedAt: null,
         },
       });
@@ -168,7 +186,7 @@ async function main() {
           .slice(0, 20)
           .map((r) => r.text);
 
-        const analysis = await analyzeApp(app.name, app.description, reviewTexts);
+        const analysis = await analyzeApp(app.name, app.description, reviewTexts, activeModel);
 
         await prisma.app.update({
           where: { id: app.id },
@@ -176,6 +194,7 @@ async function main() {
             aiSummary: analysis.summary,
             painPoints: JSON.stringify(analysis.painPoints),
             improvements: JSON.stringify(analysis.improvements),
+            modelName: activeModel,
             aiAnalyzedAt: new Date(),
           },
         });
@@ -187,6 +206,7 @@ async function main() {
         analyzed++;
       } else {
         errors++;
+        console.error(`\nError: ${result.reason}`);
       }
     }
 

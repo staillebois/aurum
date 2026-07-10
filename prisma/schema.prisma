@@ -25,6 +25,7 @@ model App {
   aiSummary        String?
   painPoints       String?
   improvements     String?
+  modelName        String?
   aiAnalyzedAt     DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

@@ -30,6 +30,7 @@ export async function GET(
         summary: app.aiSummary,
         painPoints: safeJsonParse(app.painPoints),
         improvements: safeJsonParse(app.improvements),
+        modelName: app.modelName,
         analyzedAt: app.aiAnalyzedAt,
       }
     : null;
