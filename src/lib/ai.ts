@@ -69,9 +69,20 @@ You MUST include at least 3 items in PAIN POINTS and at least 3 items in IMPROVE
 }
 
 const SECTION_ALIASES: Record<string, string[]> = {
+  "SUMMARY": ["SUMMARY", "Summary:"],
   "PAIN POINTS": ["PAIN POINTS", "Pain Points", "pain points", "PAIN POINTS:", "Pain Points:"],
   "IMPROVEMENTS": ["IMPROVEMENTS", "Improvement Ideas", "Improvements", "improvements", "IMPROVEMENTS:", "Improvement Ideas:", "Improvements:"],
 };
+
+const SECTION_ORDER = Object.keys(SECTION_ALIASES);
+
+function getNextSectionPattern(sectionName: string): string {
+  const idx = SECTION_ORDER.indexOf(sectionName);
+  if (idx === -1 || idx === SECTION_ORDER.length - 1) return "\\n?$";
+  const nextNames = SECTION_ALIASES[SECTION_ORDER[idx + 1]];
+  const escaped = nextNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return `\\n#{0,6}\\s*\\*{0,2}\\s*(?:${escaped.join("|")})\\s*\\*{0,2}:?\\s*\\n?`;
+}
 
 function parseSection(raw: string, sectionName: string): string[] {
   const names = SECTION_ALIASES[sectionName] ?? [sectionName];
@@ -81,8 +92,8 @@ function parseSection(raw: string, sectionName: string): string[] {
 
     const pattern = new RegExp(
       `(?:^|\\n)#{0,6}\\s*\\*{0,2}\\s*${escaped}\\s*\\*{0,2}:?\\s*\\n?` +
-      `([\\s\\S]*?)(?=\\n#{0,6}\\s*\\*{0,2}\\s*(?:${getNextPattern(sectionName)})\\s*\\*{0,2}:?\\s*\\n?|$)`,
-      "im"
+      `([\\s\\S]*?)(?=${getNextSectionPattern(sectionName)})`,
+      "i"
     );
 
     const match = raw.match(pattern);
@@ -99,17 +110,13 @@ function parseSection(raw: string, sectionName: string): string[] {
   return [];
 }
 
-function getNextPattern(sectionName: string): string {
-  const next = sectionName === "PAIN POINTS" ? Object.values(SECTION_ALIASES).flat().filter((n) => n !== "PAIN POINTS" && n !== "Pain Points" && n !== "pain points") : [];
-  if (next.length === 0) return "";
-  const escaped = next.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return escaped.join("|");
-}
-
 function parseAnalysis(raw: string): AiAnalysis {
-  const summaryMatch = raw.match(
-    /(?:^|\n)#{0,6}\s*\*{0,2}\s*SUMMARY\s*\*{0,2}:?\s*\n?\s*([\s\S]*?)(?=\n#{0,6}\s*\*{0,2}\s*(?:PAIN POINTS|Pain Points|pain points)\s*\*{0,2}:?\s*\n?|$)/im
+  const summaryPattern = new RegExp(
+    `(?:^|\\n)#{0,6}\\s*\\*{0,2}\\s*SUMMARY\\s*\\*{0,2}:?\\s*\\n?\\s*` +
+    `([\\s\\S]*?)(?=${getNextSectionPattern("SUMMARY")})`,
+    "i"
   );
+  const summaryMatch = raw.match(summaryPattern);
   const summary = summaryMatch ? summaryMatch[1].trim() : "No summary generated.";
 
   const painPoints = parseSection(raw, "PAIN POINTS");
