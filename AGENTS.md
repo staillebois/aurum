@@ -4,6 +4,10 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# Language: all documentation must be in English
+
+All `doc/` files, TASKS.md, and any documentation must be written in English. French (or any other language) is not allowed in documentation files.
+
 # Feature, Bug & Improvement workflow
 
 Before implementing any new feature, bug fix, or improvement:

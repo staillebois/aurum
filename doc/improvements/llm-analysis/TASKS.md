@@ -10,7 +10,7 @@ The project has a working Ollama integration in `src/lib/ai.ts` and a batch Olla
 
 ---
 
-## User Story — Analyse exclusivement Ollama
+## User Story — Ollama-only analysis
 
 **As a** developer running the analysis pipeline  
 **I want** `generate-analysis.ts` to use Ollama for all analysis, removing the programmatic fallback  
