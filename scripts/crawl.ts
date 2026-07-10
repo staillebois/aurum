@@ -1,9 +1,7 @@
 import gplay from "google-play-scraper";
 import { prisma } from "../src/lib/prisma";
 import { estimateMrr, calculateOpportunityScore } from "../src/lib/scoring";
-import { analyzeApp } from "../src/lib/ai";
 
-const SHOULD_ANALYZE = process.argv.includes("--analyze");
 const SHOULD_REFRESH = process.argv.includes("--refresh");
 
 const TARGET_CATEGORIES = [
@@ -144,33 +142,6 @@ async function saveCompetitors(appId: string) {
   }
 }
 
-async function aiAnalyze(appId: string) {
-  const app = await prisma.app.findUnique({
-    where: { id: appId },
-    include: { reviews: true },
-  });
-  if (!app) return;
-
-  const reviewTexts = app.reviews
-    .filter((r) => r.text.length > 20)
-    .slice(0, 20)
-    .map((r) => r.text);
-
-  const analysis = await analyzeApp(app.name, app.description, reviewTexts);
-
-  await prisma.app.update({
-    where: { id: appId },
-    data: {
-      aiSummary: analysis.summary,
-      painPoints: JSON.stringify(analysis.painPoints),
-      improvements: JSON.stringify(analysis.improvements),
-      aiAnalyzedAt: new Date(),
-    },
-  });
-
-  console.log(`  AI Analysis done`);
-}
-
 async function scoreApp(appId: string) {
   const app = await prisma.app.findUnique({
     where: { id: appId },
@@ -230,7 +201,6 @@ async function crawl() {
         await saveReviews(app.appId);
         await saveCompetitors(app.appId);
         await scoreApp(app.appId);
-        if (SHOULD_ANALYZE) await aiAnalyze(app.appId);
         totalSaved++;
       }
     } catch (err) {
@@ -262,7 +232,6 @@ async function crawl() {
         await saveReviews(app.appId);
         await saveCompetitors(app.appId);
         await scoreApp(app.appId);
-        if (SHOULD_ANALYZE) await aiAnalyze(app.appId);
         totalSaved++;
       }
     } catch (err) {

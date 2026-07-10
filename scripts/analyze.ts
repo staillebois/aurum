@@ -75,18 +75,43 @@ async function main() {
 
   console.log(`Starting AI analysis using model: ${activeModel}\n`);
 
+  let cleanedAppIds: string[] | null = null;
+
   if (clean) {
-    console.log("Cleaning existing analysis data...");
-    await prisma.app.updateMany({
-      data: {
-        aiSummary: null,
-        painPoints: null,
-        improvements: null,
-        modelName: null,
-        aiAnalyzedAt: null,
-      },
-    });
-    console.log("Done. All analysis fields cleared.\n");
+    if (explicitOffset !== null || limit !== null) {
+      const targets = await prisma.app.findMany({
+        orderBy: { estimatedMrr: "desc" },
+        select: { id: true },
+        skip: explicitOffset ?? 0,
+        take: limit ?? undefined,
+      });
+      cleanedAppIds = targets.map((t) => t.id);
+      if (cleanedAppIds.length > 0) {
+        console.log(`Cleaning ${cleanedAppIds.length} app(s) in target range...`);
+        await prisma.app.updateMany({
+          where: { id: { in: cleanedAppIds } },
+          data: {
+            aiSummary: null,
+            painPoints: null,
+            improvements: null,
+            modelName: null,
+            aiAnalyzedAt: null,
+          },
+        });
+      }
+    } else {
+      console.log("Cleaning all apps...");
+      await prisma.app.updateMany({
+        data: {
+          aiSummary: null,
+          painPoints: null,
+          improvements: null,
+          modelName: null,
+          aiAnalyzedAt: null,
+        },
+      });
+    }
+    console.log("Done.\n");
   }
 
   if (reAnalyzeFallback) {
@@ -133,10 +158,13 @@ async function main() {
   }
 
   const apps = await prisma.app.findMany({
-    where: { aiSummary: null },
+    where: {
+      aiSummary: null,
+      ...(cleanedAppIds ? { id: { in: cleanedAppIds } } : {}),
+    },
     include: { reviews: true },
     orderBy: { estimatedMrr: "desc" },
-    skip: explicitOffset ?? 0,
+    skip: cleanedAppIds ? 0 : (explicitOffset ?? 0),
     take: limit ?? undefined,
   });
 
