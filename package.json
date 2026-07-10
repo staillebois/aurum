@@ -10,6 +10,7 @@
     "crawl": "tsx scripts/crawl.ts",
     "score": "tsx scripts/score.ts",
     "analyze": "tsx scripts/analyze.ts",
+"benchmark": "tsx scripts/benchmark.ts",
     "postinstall": "[ -f node_modules/google-play-scraper/index.d.ts ] && mv node_modules/google-play-scraper/index.d.ts node_modules/google-play-scraper/index.d.ts.bak || true"
   },
   "dependencies": {
