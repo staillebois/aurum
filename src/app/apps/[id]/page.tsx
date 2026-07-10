@@ -123,9 +123,12 @@ export default function AppDetailPage({
         <div>
           <h1 className="text-2xl font-bold">{app.name}</h1>
           <p className="text-sm text-zinc-500">{app.publisher} &middot; {app.category}</p>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {app.description}
-          </p>
+          <div className="mt-2 max-w-2xl">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Description</span>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {app.description}
+            </p>
+          </div>
         </div>
       </div>
 

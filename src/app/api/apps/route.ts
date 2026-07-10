@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const minMrr = searchParams.get("minMrr");
   const sortBy = searchParams.get("sortBy") ?? "estimatedMrr";
   const order = searchParams.get("order") ?? "desc";
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "50", 10) || 50));
 
   const where: Record<string, unknown> = {};
 
@@ -42,25 +44,38 @@ export async function GET(request: NextRequest) {
   const field = allowedSortFields.includes(sortBy) ? sortBy : "estimatedMrr";
   orderBy[field] = order === "asc" ? "asc" : "desc";
 
-  const apps = await prisma.app.findMany({
-    where,
-    orderBy,
-    select: {
-      id: true,
-      name: true,
-      icon: true,
-      category: true,
-      publisher: true,
-      downloads: true,
-      price: true,
-      hasIap: true,
-      hasSubscriptions: true,
-      rating: true,
-      reviewCount: true,
-      estimatedMrr: true,
-      opportunityScore: true,
-    },
-  });
+  const skip = (page - 1) * perPage;
 
-  return Response.json(apps);
+  const [data, total] = await Promise.all([
+    prisma.app.findMany({
+      where,
+      orderBy,
+      skip,
+      take: perPage,
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        category: true,
+        publisher: true,
+        downloads: true,
+        price: true,
+        hasIap: true,
+        hasSubscriptions: true,
+        rating: true,
+        reviewCount: true,
+        estimatedMrr: true,
+        opportunityScore: true,
+      },
+    }),
+    prisma.app.count({ where }),
+  ]);
+
+  return Response.json({
+    data,
+    total,
+    page,
+    perPage,
+    totalPages: Math.ceil(total / perPage),
+  });
 }
