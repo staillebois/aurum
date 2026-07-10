@@ -9,6 +9,7 @@ interface Review {
   text: string
   rating: number
   userName: string | null
+  createdAt: string
 }
 
 interface Competitor {
@@ -267,6 +268,7 @@ export default function AppDetailPage({
                 <div className="mb-1 flex items-center gap-2">
                   <span className="text-sm font-medium">{r.userName ?? 'Anonymous'}</span>
                   <span className="text-amber-400 text-xs">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                  <span className="ml-auto text-xs text-zinc-400">{new Date(r.createdAt).toLocaleDateString()}</span>
                 </div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">{r.text}</p>
               </div>

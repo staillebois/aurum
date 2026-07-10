@@ -11,7 +11,7 @@ export async function GET(
     where: { id },
     include: {
       reviews: {
-        select: { id: true, text: true, rating: true, userName: true },
+        select: { id: true, text: true, rating: true, userName: true, createdAt: true },
         take: 20,
         orderBy: { createdAt: "desc" },
       },
