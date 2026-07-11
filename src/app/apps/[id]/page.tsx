@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
 interface Review {
@@ -75,6 +76,9 @@ export default function AppDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
+  const searchParams = useSearchParams()
+  const from = searchParams.get('from')
+  const returnUrl = from ? `/${from}` : '/'
   const [app, setApp] = useState<AppDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -107,7 +111,7 @@ export default function AppDetailPage({
     return (
       <div className="flex min-h-full flex-col items-center justify-center gap-4">
         <p className="text-zinc-500">App not found.</p>
-        <Link href="/" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        <Link href={returnUrl} className="text-sm text-blue-600 hover:underline dark:text-blue-400">
           Back to Dashboard
         </Link>
       </div>
@@ -116,7 +120,7 @@ export default function AppDetailPage({
 
   return (
     <div className="mx-auto min-h-full max-w-4xl p-6">
-      <Link href="/" className="mb-4 inline-block text-sm text-blue-600 hover:underline dark:text-blue-400">
+      <Link href={returnUrl} className="mb-4 inline-block text-sm text-blue-600 hover:underline dark:text-blue-400">
         &larr; Back to Dashboard
       </Link>
 

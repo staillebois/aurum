@@ -268,7 +268,10 @@ export default function HomePage({
                   <tr
                     key={app.id}
                     className="cursor-pointer border-b border-zinc-100 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
-                    onClick={() => router.push(`/apps/${app.id}`)}
+                    onClick={() => {
+                      const s = window.location.search
+                      router.push(`/apps/${app.id}${s ? `?from=${encodeURIComponent(s)}` : ''}`)
+                    }}
                   >
                     <td className="px-4 py-3">
                       <Image src={app.icon} alt={app.name} className="h-8 w-8 rounded-lg" width={32} height={32} unoptimized />
