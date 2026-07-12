@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   CategoryMrrChart,
@@ -36,7 +36,6 @@ function AnalyticsContent() {
 
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [fetching, setFetching] = useState(false)
 
   const paramMinMrr = searchParams.get("minMrr") ?? ""
   const paramMaxMrr = searchParams.get("maxMrr") ?? ""
@@ -56,7 +55,6 @@ function AnalyticsContent() {
     if (paramMaxDownloads) params.set("maxDownloads", paramMaxDownloads)
     if (paramMaxApps && paramMaxApps !== "500") params.set("maxApps", paramMaxApps)
 
-    setFetching(true)
     fetch(`/api/analytics?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -68,7 +66,6 @@ function AnalyticsContent() {
       .catch((err: Error) => {
         setError(err.message)
       })
-      .finally(() => setFetching(false))
   }, [paramMinMrr, paramMaxMrr, paramMinScore, paramMaxScore, paramMinDownloads, paramMaxDownloads, paramMaxApps])
 
   return (
@@ -88,7 +85,7 @@ function AnalyticsContent() {
         </button>
       </header>
 
-      <FilterBar fetching={fetching} />
+      <FilterBar />
 
       {error && !data ? (
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -136,11 +133,11 @@ export default function AnalyticsPage() {
   )
 }
 
-function FilterBar({ fetching }: { fetching: boolean }) {
+function FilterBar() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [filters, setFilters] = useState({
+  const [localFilters, setLocalFilters] = useState({
     minMrr: searchParams.get("minMrr") ?? "",
     maxMrr: searchParams.get("maxMrr") ?? "",
     minScore: searchParams.get("minScore") ?? "",
@@ -150,48 +147,80 @@ function FilterBar({ fetching }: { fetching: boolean }) {
     maxApps: searchParams.get("maxApps") ?? "500",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const params = new URLSearchParams()
-    if (filters.minMrr) params.set("minMrr", filters.minMrr)
-    if (filters.maxMrr) params.set("maxMrr", filters.maxMrr)
-    if (filters.minScore) params.set("minScore", filters.minScore)
-    if (filters.maxScore) params.set("maxScore", filters.maxScore)
-    if (filters.minDownloads) params.set("minDownloads", filters.minDownloads)
-    if (filters.maxDownloads) params.set("maxDownloads", filters.maxDownloads)
-    if (filters.maxApps && filters.maxApps !== "500") params.set("maxApps", filters.maxApps)
-    router.replace(`/analytics?${params.toString()}`, { scroll: false })
-  }
+  const isInternalUpdate = useRef(false)
+
+  useEffect(() => {
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false
+      return
+    }
+    setLocalFilters({
+      minMrr: searchParams.get("minMrr") ?? "",
+      maxMrr: searchParams.get("maxMrr") ?? "",
+      minScore: searchParams.get("minScore") ?? "",
+      maxScore: searchParams.get("maxScore") ?? "",
+      minDownloads: searchParams.get("minDownloads") ?? "",
+      maxDownloads: searchParams.get("maxDownloads") ?? "",
+      maxApps: searchParams.get("maxApps") ?? "500",
+    })
+  }, [searchParams])
+
+  const isSearching =
+    localFilters.minMrr !== (searchParams.get("minMrr") ?? "") ||
+    localFilters.maxMrr !== (searchParams.get("maxMrr") ?? "") ||
+    localFilters.minScore !== (searchParams.get("minScore") ?? "") ||
+    localFilters.maxScore !== (searchParams.get("maxScore") ?? "") ||
+    localFilters.minDownloads !== (searchParams.get("minDownloads") ?? "") ||
+    localFilters.maxDownloads !== (searchParams.get("maxDownloads") ?? "") ||
+    localFilters.maxApps !== (searchParams.get("maxApps") ?? "500")
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    if (isSearching) {
+      debounceTimer.current = setTimeout(() => {
+        isInternalUpdate.current = true
+        const params = new URLSearchParams()
+        if (localFilters.minMrr) params.set("minMrr", localFilters.minMrr)
+        if (localFilters.maxMrr) params.set("maxMrr", localFilters.maxMrr)
+        if (localFilters.minScore) params.set("minScore", localFilters.minScore)
+        if (localFilters.maxScore) params.set("maxScore", localFilters.maxScore)
+        if (localFilters.minDownloads) params.set("minDownloads", localFilters.minDownloads)
+        if (localFilters.maxDownloads) params.set("maxDownloads", localFilters.maxDownloads)
+        if (localFilters.maxApps && localFilters.maxApps !== "500") params.set("maxApps", localFilters.maxApps)
+        router.replace(`/analytics?${params.toString()}`, { scroll: false })
+      }, 1000)
+    }
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    }
+  }, [isSearching, localFilters, router])
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 flex flex-wrap gap-3">
-      <FilterInput label="MRR min" value={filters.minMrr} onChange={(v) => setFilters((p) => ({ ...p, minMrr: v }))} />
-      <FilterInput label="MRR max" value={filters.maxMrr} onChange={(v) => setFilters((p) => ({ ...p, maxMrr: v }))} />
-      <FilterInput label="Score min" value={filters.minScore} onChange={(v) => setFilters((p) => ({ ...p, minScore: v }))} />
-      <FilterInput label="Score max" value={filters.maxScore} onChange={(v) => setFilters((p) => ({ ...p, maxScore: v }))} />
-      <FilterInput label="Downloads min" value={filters.minDownloads} onChange={(v) => setFilters((p) => ({ ...p, minDownloads: v }))} />
-      <FilterInput label="Downloads max" value={filters.maxDownloads} onChange={(v) => setFilters((p) => ({ ...p, maxDownloads: v }))} />
-      <FilterInput label="Max apps" value={filters.maxApps} onChange={(v) => setFilters((p) => ({ ...p, maxApps: v }))} />
-      <div className="flex items-center gap-2">
-        <button type="submit" className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700">
-          Apply
-        </button>
-        {fetching && (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
-        )}
-      </div>
-    </form>
+    <div className="mb-6 flex flex-wrap items-center gap-3">
+      <FilterInput label="MRR min" value={localFilters.minMrr} onChange={(v) => setLocalFilters((p) => ({ ...p, minMrr: v }))} />
+      <FilterInput label="MRR max" value={localFilters.maxMrr} onChange={(v) => setLocalFilters((p) => ({ ...p, maxMrr: v }))} />
+      <FilterInput label="Score min" value={localFilters.minScore} onChange={(v) => setLocalFilters((p) => ({ ...p, minScore: v }))} />
+      <FilterInput label="Score max" value={localFilters.maxScore} onChange={(v) => setLocalFilters((p) => ({ ...p, maxScore: v }))} />
+      <FilterInput label="Downloads min" value={localFilters.minDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, minDownloads: v }))} />
+      <FilterInput label="Downloads max" value={localFilters.maxDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, maxDownloads: v }))} />
+      <FilterInput label="Max apps" value={localFilters.maxApps} onChange={(v) => setLocalFilters((p) => ({ ...p, maxApps: v }))} />
+      {isSearching && (
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+      )}
+    </div>
   )
 }
 
 function FilterInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <input
-      type="text"
+      type="number"
       placeholder={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-32 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500"
+      className="w-32 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
     />
   )
 }
