@@ -5,22 +5,40 @@ import { estimateMrr, calculateOpportunityScore } from "../src/lib/scoring";
 const SHOULD_REFRESH = process.argv.includes("--refresh");
 
 const TARGET_CATEGORIES = [
-  { label: "Productivity", id: gplay.category.PRODUCTIVITY },
-  { label: "Finance", id: gplay.category.FINANCE },
-  { label: "Health & Fitness", id: gplay.category.HEALTH_AND_FITNESS },
-  { label: "Photography", id: gplay.category.PHOTOGRAPHY },
+  { label: "Art & Design", id: gplay.category.ART_AND_DESIGN },
+  { label: "Auto & Vehicles", id: gplay.category.AUTO_AND_VEHICLES },
+  { label: "Beauty", id: gplay.category.BEAUTY },
+  { label: "Books & Reference", id: gplay.category.BOOKS_AND_REFERENCE },
   { label: "Business", id: gplay.category.BUSINESS },
+  { label: "Comics", id: gplay.category.COMICS },
+  { label: "Communication", id: gplay.category.COMMUNICATION },
+  { label: "Dating", id: gplay.category.DATING },
   { label: "Education", id: gplay.category.EDUCATION },
+  { label: "Entertainment", id: gplay.category.ENTERTAINMENT },
+  { label: "Events", id: gplay.category.EVENTS },
+  { label: "Family", id: gplay.category.FAMILY },
+  { label: "Finance", id: gplay.category.FINANCE },
+  { label: "Food & Drink", id: gplay.category.FOOD_AND_DRINK },
+  { label: "Health & Fitness", id: gplay.category.HEALTH_AND_FITNESS },
+  { label: "House & Home", id: gplay.category.HOUSE_AND_HOME },
+  { label: "Libraries & Demo", id: gplay.category.LIBRARIES_AND_DEMO },
+  { label: "Lifestyle", id: gplay.category.LIFESTYLE },
+  { label: "Maps & Navigation", id: gplay.category.MAPS_AND_NAVIGATION },
+  { label: "Medical", id: gplay.category.MEDICAL },
+  { label: "Music & Audio", id: gplay.category.MUSIC_AND_AUDIO },
+  { label: "News & Magazines", id: gplay.category.NEWS_AND_MAGAZINES },
+  { label: "Parenting", id: gplay.category.PARENTING },
+  { label: "Personalization", id: gplay.category.PERSONALIZATION },
+  { label: "Photography", id: gplay.category.PHOTOGRAPHY },
+  { label: "Productivity", id: gplay.category.PRODUCTIVITY },
+  { label: "Shopping", id: gplay.category.SHOPPING },
+  { label: "Social", id: gplay.category.SOCIAL },
+  { label: "Sports", id: gplay.category.SPORTS },
   { label: "Tools", id: gplay.category.TOOLS },
-];
-
-const AI_SEARCH_TERMS = [
-  "AI assistant",
-  "AI chatbot",
-  "AI productivity",
-  "artificial intelligence",
-  "machine learning",
-  "AI photo editor",
+  { label: "Travel & Local", id: gplay.category.TRAVEL_AND_LOCAL },
+  { label: "Video Players", id: gplay.category.VIDEO_PLAYERS },
+  { label: "Watch Face", id: gplay.category.WATCH_FACE },
+  { label: "Weather", id: gplay.category.WEATHER },
 ];
 
 const REVIEWS_PER_APP = 50;
@@ -183,7 +201,7 @@ async function crawl() {
       const apps = await gplay.list({
         collection: gplay.collection.GROSSING,
         category: cat.id,
-        num: 60,
+        num: 100,
         fullDetail: true,
         lang: "en",
         country: "us",
@@ -205,37 +223,6 @@ async function crawl() {
       }
     } catch (err) {
       console.error(`  Error in category ${cat.label}:`, (err as Error).message);
-    }
-  }
-
-  for (const term of AI_SEARCH_TERMS) {
-    console.log(`[Search] ${term}`);
-    try {
-      const results = await gplay.search({
-        term,
-        num: 30,
-        fullDetail: true,
-        lang: "en",
-        country: "us",
-        price: "all",
-      });
-
-      for (const app of results) {
-        if (seenAppIds.has(app.appId)) continue;
-        seenAppIds.add(app.appId);
-
-        const isTarget = !app.free || app.offersIAP;
-        if (!isTarget) continue;
-
-        console.log(`  Saving: ${app.title ?? app.appId} (${app.free ? "free+iap" : "paid"})`);
-        await saveApp(app);
-        await saveReviews(app.appId);
-        await saveCompetitors(app.appId);
-        await scoreApp(app.appId);
-        totalSaved++;
-      }
-    } catch (err) {
-      console.error(`  Error searching "${term}":`, (err as Error).message);
     }
   }
 
