@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   const minDownloads = searchParams.get("minDownloads");
   const minMrr = searchParams.get("minMrr");
   const analyzed = searchParams.get("analyzed");
+  const search = searchParams.get("search");
   const sortBy = searchParams.get("sortBy") ?? "estimatedMrr";
   const order = searchParams.get("order") ?? "desc";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
@@ -42,6 +43,10 @@ export async function GET(request: NextRequest) {
 
   if (analyzed === "true") {
     where.aiAnalyzedAt = { not: null };
+  }
+
+  if (search) {
+    where.name = { contains: search };
   }
 
   const orderBy: Record<string, string> = {};

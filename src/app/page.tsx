@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useCallback, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
@@ -122,6 +122,7 @@ export default function HomePage({
   const minDownloads = (params.minDownloads as string) || ''
   const minMrr = (params.minMrr as string) || ''
   const analyzed = (params.analyzed as string) || ''
+  const search = (params.search as string) || ''
   const sortBy = (params.sortBy as string) || 'estimatedMrr'
   const order = (params.order as string) || 'desc'
   const page = parseInt((params.page as string) || '1', 10) || 1
@@ -130,6 +131,25 @@ export default function HomePage({
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [searchInput, setSearchInput] = useState(search)
+  const isSearching = searchInput !== search
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (searchInput !== search) {
+      searchTimer.current = setTimeout(() => {
+        const current = new URLSearchParams(window.location.search)
+        if (searchInput) current.set('search', searchInput)
+        else current.delete('search')
+        current.set('page', '1')
+        router.push(`/?${current.toString()}`)
+      }, 1000)
+    }
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
+  }, [searchInput, search, router])
 
   useEffect(() => {
     const query = new URLSearchParams()
@@ -138,6 +158,7 @@ export default function HomePage({
     if (minDownloads) query.set('minDownloads', minDownloads)
     if (minMrr) query.set('minMrr', minMrr)
     if (analyzed) query.set('analyzed', analyzed)
+    if (search) query.set('search', search)
     query.set('sortBy', sortBy)
     query.set('order', order)
     query.set('page', String(page))
@@ -151,7 +172,7 @@ export default function HomePage({
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [category, price, minDownloads, minMrr, analyzed, sortBy, order, page])
+  }, [category, price, minDownloads, minMrr, analyzed, search, sortBy, order, page])
 
   const setParams = useCallback(
     (updates: Record<string, string>) => {
@@ -243,6 +264,29 @@ export default function HomePage({
           onChange={e => handleFilterChange('minMrr', e.target.value)}
           className="w-40 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800"
         />
+
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search by name…"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            className="w-48 rounded-lg border border-zinc-300 px-3 py-2 pl-9 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+          />
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+          {isSearching && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 italic">
+              Searching…
+            </span>
+          )}
+        </div>
 
         <select
           value={analyzed}
