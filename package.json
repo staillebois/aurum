@@ -10,7 +10,7 @@
     "crawl": "tsx scripts/crawl.ts",
     "score": "tsx scripts/score.ts",
     "analyze": "tsx scripts/analyze.ts",
-"benchmark": "tsx scripts/benchmark.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
     "postinstall": "[ -f node_modules/google-play-scraper/index.d.ts ] && mv node_modules/google-play-scraper/index.d.ts node_modules/google-play-scraper/index.d.ts.bak || true"
   },
   "dependencies": {
@@ -22,7 +22,8 @@
     "next": "16.2.10",
     "prisma": "^7.8.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

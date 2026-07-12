@@ -196,9 +196,14 @@ export default function HomePage({
 
   return (
     <div className="min-h-full p-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Aurum</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">App Opportunity Analyzer</p>
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Aurum</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">App Opportunity Analyzer</p>
+        </div>
+        <a href="/analytics" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          Analytics
+        </a>
       </header>
 
       <div className="mb-6 flex flex-wrap gap-3">
