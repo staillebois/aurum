@@ -206,7 +206,7 @@ function FilterBar({ refetching }: { refetching: boolean }) {
         isInternalUpdate.current = true
         router.replace(`/analytics?${newStr}`, { scroll: false })
       }
-    }, 1000)
+    }, 500)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }

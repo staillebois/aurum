@@ -144,7 +144,7 @@ export default function HomePage({
         else current.delete('search')
         current.set('page', '1')
         router.push(`/?${current.toString()}`)
-      }, 1000)
+      }, 500)
     }
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
