@@ -106,7 +106,7 @@ async function saveApp(app: any) {
   return saved;
 }
 
-async function saveReviews(appId: string) {
+async function saveReviews(appId: string, appLabel: string) {
   try {
     const result = await gplay.reviews({
       appId,
@@ -129,13 +129,13 @@ async function saveReviews(appId: string) {
     }));
 
     await prisma.review.createMany({ data: reviews });
-    console.log(`  Saved ${reviews.length} reviews`);
+    console.log(`  [${appLabel}] Saved ${reviews.length} reviews`);
   } catch (err) {
-    console.error(`  Error fetching reviews for ${appId}:`, (err as Error).message);
+    console.error(`  [${appLabel}] Error fetching reviews:`, (err as Error).message);
   }
 }
 
-async function saveCompetitors(appId: string) {
+async function saveCompetitors(appId: string, appLabel: string) {
   try {
     const result = await gplay.similar({
       appId,
@@ -157,13 +157,13 @@ async function saveCompetitors(appId: string) {
     }));
 
     await prisma.competitor.createMany({ data: competitors });
-    console.log(`  Saved ${competitors.length} competitors`);
+    console.log(`  [${appLabel}] Saved ${competitors.length} competitors`);
   } catch (err) {
-    console.error(`  Error fetching competitors for ${appId}:`, (err as Error).message);
+    console.error(`  [${appLabel}] Error fetching competitors:`, (err as Error).message);
   }
 }
 
-async function scoreApp(appId: string) {
+async function scoreApp(appId: string, appLabel: string) {
   const app = await prisma.app.findUnique({
     where: { id: appId },
     include: { reviews: true, competitors: true },
@@ -186,7 +186,7 @@ async function scoreApp(appId: string) {
     data: { estimatedMrr: mrr, opportunityScore: score },
   });
 
-  console.log(`  MRR: $${mrr}  Score: ${score}`);
+  console.log(`  [${appLabel}] MRR: $${mrr}  Score: ${score}`);
 }
 
 async function crawl() {
@@ -220,11 +220,12 @@ async function crawl() {
           const isTarget = !app.free || app.offersIAP;
           if (!isTarget) continue;
 
-          console.log(`  [${cat.label}] Saving: ${app.title ?? app.appId} (${app.free ? "free+iap" : "paid"})`);
+          const appLabel = app.title ?? app.appId;
+          console.log(`  [${cat.label}] Saving: ${appLabel} (${app.free ? "free+iap" : "paid"})`);
           await saveApp(app);
-          await saveReviews(app.appId);
-          await saveCompetitors(app.appId);
-          await scoreApp(app.appId);
+          await saveReviews(app.appId, appLabel);
+          await saveCompetitors(app.appId, appLabel);
+          await scoreApp(app.appId, appLabel);
           saved++;
         }
         return saved;
@@ -240,8 +241,7 @@ async function crawl() {
     console.log(`\nRefreshing reviews for ${existing.length} existing apps...`);
     for (let i = 0; i < existing.length; i++) {
       const app = existing[i];
-      process.stdout.write(`  [${i + 1}/${existing.length}] ${app.id.slice(0, 30)}...`);
-      await saveReviews(app.id);
+      await saveReviews(app.id, app.id.slice(0, 30));
       process.stdout.write(" done\n");
     }
     console.log("Review refresh complete.");
