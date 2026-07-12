@@ -36,6 +36,7 @@ function AnalyticsContent() {
 
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [refetching, setRefetching] = useState(false)
 
   const paramMinMrr = searchParams.get("minMrr") ?? ""
   const paramMaxMrr = searchParams.get("maxMrr") ?? ""
@@ -45,7 +46,11 @@ function AnalyticsContent() {
   const paramMaxDownloads = searchParams.get("maxDownloads") ?? ""
   const paramMaxApps = searchParams.get("maxApps") ?? "500"
 
+  const fetchIdRef = useRef(0)
+
   useEffect(() => {
+    const id = ++fetchIdRef.current
+
     const params = new URLSearchParams()
     if (paramMinMrr) params.set("minMrr", paramMinMrr)
     if (paramMaxMrr) params.set("maxMrr", paramMaxMrr)
@@ -55,16 +60,23 @@ function AnalyticsContent() {
     if (paramMaxDownloads) params.set("maxDownloads", paramMaxDownloads)
     if (paramMaxApps && paramMaxApps !== "500") params.set("maxApps", paramMaxApps)
 
+    Promise.resolve().then(() => {
+      if (fetchIdRef.current === id) setRefetching(true)
+    })
+
     fetch(`/api/analytics?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
       })
       .then((d: AnalyticsData) => {
-        setData(d)
+        if (fetchIdRef.current === id) setData(d)
       })
       .catch((err: Error) => {
-        setError(err.message)
+        if (fetchIdRef.current === id) setError(err.message)
+      })
+      .finally(() => {
+        if (fetchIdRef.current === id) setRefetching(false)
       })
   }, [paramMinMrr, paramMaxMrr, paramMinScore, paramMaxScore, paramMinDownloads, paramMaxDownloads, paramMaxApps])
 
@@ -85,7 +97,7 @@ function AnalyticsContent() {
         </button>
       </header>
 
-      <FilterBar />
+      <FilterBar refetching={refetching} />
 
       {error && !data ? (
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -133,7 +145,7 @@ export default function AnalyticsPage() {
   )
 }
 
-function FilterBar() {
+function FilterBar({ refetching }: { refetching: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -206,7 +218,7 @@ function FilterBar() {
       <FilterInput label="Downloads min" value={localFilters.minDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, minDownloads: v }))} />
       <FilterInput label="Downloads max" value={localFilters.maxDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, maxDownloads: v }))} />
       <FilterInput label="Max apps" value={localFilters.maxApps} onChange={(v) => setLocalFilters((p) => ({ ...p, maxApps: v }))} />
-      {isSearching && (
+      {(isSearching || refetching) && (
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
       )}
     </div>
