@@ -25,8 +25,14 @@ interface PaginatedResponse {
 }
 
 const CATEGORIES = [
-  'Productivity', 'Finance', 'Health & Fitness', 'Photography',
-  'Business', 'Education', 'Tools',
+  'Art & Design', 'Auto & Vehicles', 'Beauty', 'Books & Reference',
+  'Business', 'Comics', 'Communication', 'Dating', 'Education',
+  'Entertainment', 'Events', 'Family', 'Finance', 'Food & Drink',
+  'Health & Fitness', 'House & Home', 'Libraries & Demo', 'Lifestyle',
+  'Maps & Navigation', 'Medical', 'Music & Audio', 'News & Magazines',
+  'Parenting', 'Personalization', 'Photography', 'Productivity',
+  'Shopping', 'Social', 'Sports', 'Tools', 'Travel & Local',
+  'Video Players', 'Watch Face', 'Weather',
 ]
 
 function formatDownloads(n: number): string {
