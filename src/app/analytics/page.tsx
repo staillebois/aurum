@@ -159,7 +159,10 @@ function FilterBar({ refetching }: { refetching: boolean }) {
     maxApps: searchParams.get("maxApps") ?? "500",
   })
 
+  const [showSpinner, setShowSpinner] = useState(false)
+  const prevRefetching = useRef(refetching)
   const isInternalUpdate = useRef(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (isInternalUpdate.current) {
@@ -175,50 +178,56 @@ function FilterBar({ refetching }: { refetching: boolean }) {
       maxDownloads: searchParams.get("maxDownloads") ?? "",
       maxApps: searchParams.get("maxApps") ?? "500",
     })
+    setShowSpinner(false)
   }, [searchParams])
 
-  const isSearching =
-    localFilters.minMrr !== (searchParams.get("minMrr") ?? "") ||
-    localFilters.maxMrr !== (searchParams.get("maxMrr") ?? "") ||
-    localFilters.minScore !== (searchParams.get("minScore") ?? "") ||
-    localFilters.maxScore !== (searchParams.get("maxScore") ?? "") ||
-    localFilters.minDownloads !== (searchParams.get("minDownloads") ?? "") ||
-    localFilters.maxDownloads !== (searchParams.get("maxDownloads") ?? "") ||
-    localFilters.maxApps !== (searchParams.get("maxApps") ?? "500")
-
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (prevRefetching.current && !refetching) {
+      setShowSpinner(false)
+    }
+    prevRefetching.current = refetching
+  }, [refetching])
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    if (isSearching) {
-      debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = setTimeout(() => {
+      const params = new URLSearchParams()
+      if (localFilters.minMrr) params.set("minMrr", localFilters.minMrr)
+      if (localFilters.maxMrr) params.set("maxMrr", localFilters.maxMrr)
+      if (localFilters.minScore) params.set("minScore", localFilters.minScore)
+      if (localFilters.maxScore) params.set("maxScore", localFilters.maxScore)
+      if (localFilters.minDownloads) params.set("minDownloads", localFilters.minDownloads)
+      if (localFilters.maxDownloads) params.set("maxDownloads", localFilters.maxDownloads)
+      if (localFilters.maxApps && localFilters.maxApps !== "500") params.set("maxApps", localFilters.maxApps)
+      const newStr = params.toString()
+      const currentStr = new URLSearchParams(window.location.search).toString()
+      if (newStr === currentStr) {
+        setShowSpinner(false)
+      } else {
         isInternalUpdate.current = true
-        const params = new URLSearchParams()
-        if (localFilters.minMrr) params.set("minMrr", localFilters.minMrr)
-        if (localFilters.maxMrr) params.set("maxMrr", localFilters.maxMrr)
-        if (localFilters.minScore) params.set("minScore", localFilters.minScore)
-        if (localFilters.maxScore) params.set("maxScore", localFilters.maxScore)
-        if (localFilters.minDownloads) params.set("minDownloads", localFilters.minDownloads)
-        if (localFilters.maxDownloads) params.set("maxDownloads", localFilters.maxDownloads)
-        if (localFilters.maxApps && localFilters.maxApps !== "500") params.set("maxApps", localFilters.maxApps)
-        router.replace(`/analytics?${params.toString()}`, { scroll: false })
-      }, 1000)
-    }
+        router.replace(`/analytics?${newStr}`, { scroll: false })
+      }
+    }, 1000)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [isSearching, localFilters, router])
+  }, [localFilters, router])
+
+  const updateFilter = (key: string, value: string) => {
+    setLocalFilters((prev) => ({ ...prev, [key]: value }))
+    setShowSpinner(true)
+  }
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3">
-      <FilterInput label="MRR min" value={localFilters.minMrr} onChange={(v) => setLocalFilters((p) => ({ ...p, minMrr: v }))} />
-      <FilterInput label="MRR max" value={localFilters.maxMrr} onChange={(v) => setLocalFilters((p) => ({ ...p, maxMrr: v }))} />
-      <FilterInput label="Score min" value={localFilters.minScore} onChange={(v) => setLocalFilters((p) => ({ ...p, minScore: v }))} />
-      <FilterInput label="Score max" value={localFilters.maxScore} onChange={(v) => setLocalFilters((p) => ({ ...p, maxScore: v }))} />
-      <FilterInput label="Downloads min" value={localFilters.minDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, minDownloads: v }))} />
-      <FilterInput label="Downloads max" value={localFilters.maxDownloads} onChange={(v) => setLocalFilters((p) => ({ ...p, maxDownloads: v }))} />
-      <FilterInput label="Max apps" value={localFilters.maxApps} onChange={(v) => setLocalFilters((p) => ({ ...p, maxApps: v }))} />
-      {(isSearching || refetching) && (
+      <FilterInput label="MRR min" value={localFilters.minMrr} onChange={(v) => updateFilter("minMrr", v)} />
+      <FilterInput label="MRR max" value={localFilters.maxMrr} onChange={(v) => updateFilter("maxMrr", v)} />
+      <FilterInput label="Score min" value={localFilters.minScore} onChange={(v) => updateFilter("minScore", v)} />
+      <FilterInput label="Score max" value={localFilters.maxScore} onChange={(v) => updateFilter("maxScore", v)} />
+      <FilterInput label="Downloads min" value={localFilters.minDownloads} onChange={(v) => updateFilter("minDownloads", v)} />
+      <FilterInput label="Downloads max" value={localFilters.maxDownloads} onChange={(v) => updateFilter("maxDownloads", v)} />
+      <FilterInput label="Max apps" value={localFilters.maxApps} onChange={(v) => updateFilter("maxApps", v)} />
+      {showSpinner && (
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
       )}
     </div>
