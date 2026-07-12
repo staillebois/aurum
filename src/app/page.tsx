@@ -115,6 +115,7 @@ export default function HomePage({
   const price = (params.price as string) || ''
   const minDownloads = (params.minDownloads as string) || ''
   const minMrr = (params.minMrr as string) || ''
+  const analyzed = (params.analyzed as string) || ''
   const sortBy = (params.sortBy as string) || 'estimatedMrr'
   const order = (params.order as string) || 'desc'
   const page = parseInt((params.page as string) || '1', 10) || 1
@@ -130,6 +131,7 @@ export default function HomePage({
     if (price) query.set('price', price)
     if (minDownloads) query.set('minDownloads', minDownloads)
     if (minMrr) query.set('minMrr', minMrr)
+    if (analyzed) query.set('analyzed', analyzed)
     query.set('sortBy', sortBy)
     query.set('order', order)
     query.set('page', String(page))
@@ -143,7 +145,7 @@ export default function HomePage({
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [category, price, minDownloads, minMrr, sortBy, order, page])
+  }, [category, price, minDownloads, minMrr, analyzed, sortBy, order, page])
 
   const setParams = useCallback(
     (updates: Record<string, string>) => {
@@ -230,6 +232,15 @@ export default function HomePage({
           onChange={e => handleFilterChange('minMrr', e.target.value)}
           className="w-40 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800"
         />
+
+        <select
+          value={analyzed}
+          onChange={e => handleFilterChange('analyzed', e.target.value)}
+          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800"
+        >
+          <option value="">All Apps</option>
+          <option value="true">With Analysis Only</option>
+        </select>
       </div>
 
       {loading ? (

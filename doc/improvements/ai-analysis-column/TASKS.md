@@ -25,3 +25,16 @@ Users currently have to click into each app's detail page to see if an AI analys
 - [ ] Apps without AI analysis display a grey "No" badge
 - [ ] The empty state row spans all columns correctly
 - [ ] No regressions in table sorting, filtering, or pagination
+
+### As a user, I want to filter the table to show only analyzed apps
+
+**Tasks:**
+- [x] Add `analyzed` query param support to `/api/apps` route
+- [x] Add "AI Analysis" filter dropdown to the filter bar
+- [x] Wire the filter into the URL query string and `useEffect` dependencies
+
+**Validation steps:**
+- [ ] Selecting "With Analysis Only" shows only apps that have `aiAnalyzedAt` set
+- [ ] Selecting "All Apps" shows all apps (default)
+- [ ] The filter is reflected in the URL and survives page refresh
+- [ ] Pagination works correctly with the filter active

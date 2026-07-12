@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const price = searchParams.get("price");
   const minDownloads = searchParams.get("minDownloads");
   const minMrr = searchParams.get("minMrr");
+  const analyzed = searchParams.get("analyzed");
   const sortBy = searchParams.get("sortBy") ?? "estimatedMrr";
   const order = searchParams.get("order") ?? "desc";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
@@ -37,6 +38,10 @@ export async function GET(request: NextRequest) {
     if (!isNaN(min)) {
       where.estimatedMrr = { gte: min };
     }
+  }
+
+  if (analyzed === "true") {
+    where.aiAnalyzedAt = { not: null };
   }
 
   const orderBy: Record<string, string> = {};
