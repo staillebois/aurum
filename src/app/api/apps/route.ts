@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         reviewCount: true,
         estimatedMrr: true,
         opportunityScore: true,
+        aiAnalyzedAt: true,
       },
     }),
     prisma.app.count({ where }),

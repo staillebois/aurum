@@ -13,6 +13,7 @@ interface App {
   price: number
   estimatedMrr: number | null
   opportunityScore: number | null
+  aiAnalyzedAt: string | null
 }
 
 interface PaginatedResponse {
@@ -261,6 +262,7 @@ export default function HomePage({
                   >
                     Score{sortIndicator('opportunityScore')}
                   </th>
+                  <th className="px-4 py-3 text-center font-medium text-zinc-500">AI Analysis</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,11 +296,22 @@ export default function HomePage({
                         {app.opportunityScore ?? '-'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {app.aiAnalyzedAt ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          ✓ Yes
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500">
+                          — No
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {apps.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
+                    <td colSpan={8} className="px-4 py-12 text-center text-zinc-500">
                       No apps found matching your filters.
                     </td>
                   </tr>
