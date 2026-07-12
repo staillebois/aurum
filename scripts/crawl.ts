@@ -3,6 +3,9 @@ import { prisma } from "../src/lib/prisma";
 import { estimateMrr, calculateOpportunityScore } from "../src/lib/scoring";
 
 const SHOULD_REFRESH = process.argv.includes("--refresh");
+const CONCURRENCY = parseInt(
+  process.argv.find(a => a.startsWith("--concurrency="))?.split("=")[1] ?? "5", 10
+);
 
 const TARGET_CATEGORIES = [
   { label: "Art & Design", id: gplay.category.ART_AND_DESIGN },
@@ -195,35 +198,42 @@ async function crawl() {
 
   let totalSaved = 0;
 
-  for (const cat of TARGET_CATEGORIES) {
-    console.log(`[Category] ${cat.label}`);
-    try {
-      const apps = await gplay.list({
-        collection: gplay.collection.GROSSING,
-        category: cat.id,
-        num: 100,
-        fullDetail: true,
-        lang: "en",
-        country: "us",
-      });
+  for (let i = 0; i < TARGET_CATEGORIES.length; i += CONCURRENCY) {
+    const batch = TARGET_CATEGORIES.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(batch.map(async (cat) => {
+      console.log(`[Category] ${cat.label}`);
+      try {
+        const apps = await gplay.list({
+          collection: gplay.collection.GROSSING,
+          category: cat.id,
+          num: 100,
+          fullDetail: true,
+          lang: "en",
+          country: "us",
+        });
 
-      for (const app of apps) {
-        if (seenAppIds.has(app.appId)) continue;
-        seenAppIds.add(app.appId);
+        let saved = 0;
+        for (const app of apps) {
+          if (seenAppIds.has(app.appId)) continue;
+          seenAppIds.add(app.appId);
 
-        const isTarget = !app.free || app.offersIAP;
-        if (!isTarget) continue;
+          const isTarget = !app.free || app.offersIAP;
+          if (!isTarget) continue;
 
-        console.log(`  Saving: ${app.title ?? app.appId} (${app.free ? "free+iap" : "paid"})`);
-        await saveApp(app);
-        await saveReviews(app.appId);
-        await saveCompetitors(app.appId);
-        await scoreApp(app.appId);
-        totalSaved++;
+          console.log(`  [${cat.label}] Saving: ${app.title ?? app.appId} (${app.free ? "free+iap" : "paid"})`);
+          await saveApp(app);
+          await saveReviews(app.appId);
+          await saveCompetitors(app.appId);
+          await scoreApp(app.appId);
+          saved++;
+        }
+        return saved;
+      } catch (err) {
+        console.error(`  Error in category ${cat.label}:`, (err as Error).message);
+        return 0;
       }
-    } catch (err) {
-      console.error(`  Error in category ${cat.label}:`, (err as Error).message);
-    }
+    }));
+    totalSaved += results.reduce((a, b) => a + b, 0);
   }
 
   if (SHOULD_REFRESH) {
