@@ -159,7 +159,7 @@ function FilterBar({ refetching }: { refetching: boolean }) {
     maxApps: searchParams.get("maxApps") ?? "500",
   })
 
-  const [showSpinner, setShowSpinner] = useState(false)
+  const [showSpinner, setShowSpinner] = useState(true)
   const prevRefetching = useRef(refetching)
   const isInternalUpdate = useRef(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -178,7 +178,6 @@ function FilterBar({ refetching }: { refetching: boolean }) {
       maxDownloads: searchParams.get("maxDownloads") ?? "",
       maxApps: searchParams.get("maxApps") ?? "500",
     })
-    setShowSpinner(false)
   }, [searchParams])
 
   useEffect(() => {
