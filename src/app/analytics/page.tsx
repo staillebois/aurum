@@ -383,7 +383,7 @@ function AnalyticsContent() {
                       </button>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="text-zinc-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                          <span className="text-zinc-400">{new Date(r.createdAt).toLocaleString()}</span>
                           <span className="text-xs text-zinc-600">·</span>
                           <span className="text-xs text-zinc-500 truncate">{filterLabel(r)}</span>
                         </div>
