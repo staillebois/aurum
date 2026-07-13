@@ -144,7 +144,7 @@ async function saveCompetitors(appId: string, appLabel: string) {
       fullDetail: false,
     });
 
-    if (!result?.length) return;
+    if (!result?.length || !Array.isArray(result)) return;
 
     await prisma.competitor.deleteMany({ where: { appId } });
 
@@ -159,7 +159,7 @@ async function saveCompetitors(appId: string, appLabel: string) {
     await prisma.competitor.createMany({ data: competitors });
     console.log(`  [${appLabel}] Saved ${competitors.length} competitors`);
   } catch (err) {
-    console.error(`  [${appLabel}] Error fetching competitors:`, (err as Error).message);
+    console.log(`  [${appLabel}] No competitors (${(err as Error).message})`);
   }
 }
 
