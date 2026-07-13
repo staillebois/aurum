@@ -83,7 +83,7 @@ async function main() {
         orderBy: { estimatedMrr: "desc" },
         select: { id: true },
         skip: explicitOffset ?? 0,
-        take: limit ?? undefined,
+    take: limit ?? 100,
       });
       cleanedAppIds = targets.map((t) => t.id);
       if (cleanedAppIds.length > 0) {
@@ -162,16 +162,10 @@ async function main() {
       aiSummary: null,
       ...(cleanedAppIds ? { id: { in: cleanedAppIds } } : {}),
     },
-    include: {
-      reviews: {
-        select: { text: true },
-        take: 20,
-        orderBy: { createdAt: "desc" },
-      },
-    },
+    include: { reviews: { select: { text: true, createdAt: true } } },
     orderBy: { estimatedMrr: "desc" },
     skip: cleanedAppIds ? 0 : (explicitOffset ?? 0),
-    take: limit ?? undefined,
+    take: limit ?? 100,
   });
 
   const total = apps.length;
@@ -216,6 +210,8 @@ async function main() {
         renderProgress(`analyzing ${app.name}...`);
 
         const reviewTexts = app.reviews
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 20)
           .map((r) => r.text)
           .filter((t) => t.length > 20);
 
