@@ -10,6 +10,39 @@ import {
   ScoreDistributionChart,
   DownloadsVsMrrChart,
 } from '@/components/charts'
+import type { OpportunityRecommendation } from '@/lib/ai-analytics'
+
+interface HistoryReportSummary {
+  id: string
+  createdAt: string
+  filterMinMrr: number | null
+  filterMaxMrr: number | null
+  filterMinScore: number | null
+  filterMaxScore: number | null
+  filterMinDownloads: number | null
+  filterMaxDownloads: number | null
+  filterMaxApps: number | null
+  analyzedCount: number
+  recommendedCategory: string
+  topAppName: string
+}
+
+interface HistoryReportDetail {
+  id: string
+  createdAt: string
+  filters: {
+    minMrr: number | null
+    maxMrr: number | null
+    minScore: number | null
+    maxScore: number | null
+    minDownloads: number | null
+    maxDownloads: number | null
+    maxApps: number | null
+  }
+  analyzedCount: number
+  recommendation: OpportunityRecommendation
+  modelName: string
+}
 
 interface AnalyticsData {
   categoryStats: { category: string; avgMrr: number; count: number; maxMrr: number }[]
@@ -37,6 +70,17 @@ function AnalyticsContent() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refetching, setRefetching] = useState(false)
+  const [recommendation, setRecommendation] = useState<OpportunityRecommendation | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [analyzedCount, setAnalyzedCount] = useState(0)
+  const [modelName, setModelName] = useState<string | null>(null)
+  const [historyReports, setHistoryReports] = useState<HistoryReportSummary[]>([])
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null)
+  const [expandedReportDetail, setExpandedReportDetail] = useState<HistoryReportDetail | null>(null)
+  const [expandingId, setExpandingId] = useState<string | null>(null)
+  const [rerunningMap, setRerunningMap] = useState<Record<string, boolean>>({})
+  const [historyLoading, setHistoryLoading] = useState(true)
 
   const paramMinMrr = searchParams.get("minMrr") ?? ""
   const paramMaxMrr = searchParams.get("maxMrr") ?? ""
@@ -80,6 +124,109 @@ function AnalyticsContent() {
       })
   }, [paramMinMrr, paramMaxMrr, paramMinScore, paramMaxScore, paramMinDownloads, paramMaxDownloads, paramMaxApps])
 
+  const fetchHistory = () => {
+    fetch("/api/analytics/ai-analyze/history")
+      .then((res) => res.json())
+      .then((d) => {
+        setHistoryReports(d.reports)
+        setHistoryLoading(false)
+      })
+      .catch(() => setHistoryLoading(false))
+  }
+
+  useEffect(() => {
+    fetchHistory()
+  }, [])
+
+  const expandReport = (id: string) => {
+    if (expandedReportId === id) {
+      setExpandedReportId(null)
+      setExpandedReportDetail(null)
+      return
+    }
+    setExpandedReportId(id)
+    setExpandedReportDetail(null)
+    setExpandingId(id)
+    fetch(`/api/analytics/ai-analyze/${id}`)
+      .then((res) => res.json())
+      .then((d: HistoryReportDetail) => {
+        setExpandedReportDetail(d)
+        setExpandingId(null)
+      })
+      .catch(() => setExpandingId(null))
+  }
+
+  const rerunReport = (id: string) => {
+    if (rerunningMap[id]) return
+    setRerunningMap((prev) => ({ ...prev, [id]: true }))
+    fetch(`/api/analytics/ai-analyze/${id}`, { method: "POST" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((d) => {
+        setRecommendation(d.recommendation)
+        setAnalyzedCount(d.analyzedCount)
+        setModelName(d.modelName ?? null)
+        setAnalysisError(null)
+        setRerunningMap((prev) => ({ ...prev, [id]: false }))
+        fetchHistory()
+      })
+      .catch((err: Error) => {
+        setAnalysisError(err.message)
+        setRerunningMap((prev) => ({ ...prev, [id]: false }))
+      })
+  }
+
+  const filterLabel = (r: HistoryReportSummary): string => {
+    const parts: string[] = []
+    if (r.filterMinMrr !== null) parts.push(`MRR ≥ $${r.filterMinMrr}`)
+    if (r.filterMaxMrr !== null) parts.push(`MRR ≤ $${r.filterMaxMrr}`)
+    if (r.filterMinScore !== null) parts.push(`Score ≥ ${r.filterMinScore}`)
+    if (r.filterMaxScore !== null) parts.push(`Score ≤ ${r.filterMaxScore}`)
+    if (r.filterMinDownloads !== null) parts.push(`DL ≥ ${r.filterMinDownloads.toLocaleString()}`)
+    if (r.filterMaxDownloads !== null) parts.push(`DL ≤ ${r.filterMaxDownloads.toLocaleString()}`)
+    if (r.filterMaxApps !== null) parts.push(`top ${r.filterMaxApps}`)
+    return parts.join(", ") || "No filters"
+  }
+
+  const runAnalysis = () => {
+    if (analyzing || !data || data.apps.length === 0) return
+    setAnalyzing(true)
+    setAnalysisError(null)
+    setRecommendation(null)
+
+    const body: Record<string, string> = {}
+    if (paramMinMrr) body.minMrr = paramMinMrr
+    if (paramMaxMrr) body.maxMrr = paramMaxMrr
+    if (paramMinScore) body.minScore = paramMinScore
+    if (paramMaxScore) body.maxScore = paramMaxScore
+    if (paramMinDownloads) body.minDownloads = paramMinDownloads
+    if (paramMaxDownloads) body.maxDownloads = paramMaxDownloads
+    if (paramMaxApps && paramMaxApps !== "500") body.maxApps = paramMaxApps
+
+    fetch("/api/analytics/ai-analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((d) => {
+        setRecommendation(d.recommendation)
+        setAnalyzedCount(d.analyzedCount)
+        setModelName(d.modelName ?? null)
+        setAnalyzing(false)
+        fetchHistory()
+      })
+      .catch((err: Error) => {
+        setAnalysisError(err.message)
+        setAnalyzing(false)
+      })
+  }
+
   return (
     <div className="p-6">
       <header className="mb-8 flex items-start justify-between">
@@ -92,9 +239,25 @@ function AnalyticsContent() {
             </p>
           )}
         </div>
-        <button onClick={() => router.back()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800">
-          ← Back
-        </button>
+        <div className="flex items-center gap-3">
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing || !data || data.apps.length === 0}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {analyzing ? (
+                <span className="flex items-center gap-2">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+                  Analyzing...
+                </span>
+              ) : (
+                "Launch AI Analysis"
+              )}
+            </button>
+            <button onClick={() => router.back()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800">
+              ← Back
+            </button>
+          </div>
       </header>
 
       <FilterBar refetching={refetching} />
@@ -130,6 +293,170 @@ function AnalyticsContent() {
           <div className="mb-8 grid gap-6 lg:grid-cols-2">
             <TopAppsChart data={data.apps} />
             <DownloadsVsMrrChart data={data.apps} />
+          </div>
+
+          {analysisError && (
+            <div className="mb-8 rounded-lg border border-red-800 bg-red-900/20 p-4">
+              <p className="text-sm text-red-400">Analysis failed: {analysisError}</p>
+              <button
+                onClick={runAnalysis}
+                className="mt-2 text-xs text-red-300 hover:text-red-200 underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {recommendation && (
+            <div className="mb-8 rounded-lg border border-zinc-700 bg-zinc-900/50 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-zinc-200">AI Opportunity Analysis</h2>
+                <span className="text-xs text-zinc-500">Based on {analyzedCount.toLocaleString()} apps{modelName ? ` · ${modelName}` : ""}</span>
+              </div>
+
+              <div className="mb-4 flex flex-wrap gap-4">
+                <div className="rounded-lg border border-emerald-800 bg-emerald-900/20 px-3 py-2">
+                  <div className="text-xs text-zinc-500">Recommended Category</div>
+                  <div className="text-sm font-semibold text-emerald-400">{recommendation.recommendedCategory}</div>
+                </div>
+              </div>
+
+              <div className="mb-4 rounded-lg border border-zinc-700 p-3">
+                <div className="text-xs text-zinc-500 mb-1">Top App to Study</div>
+                <div className="text-sm font-medium text-zinc-200">{recommendation.topApp.name}</div>
+                {recommendation.topApp.reason && (
+                  <p className="mt-1 text-sm text-zinc-400">{recommendation.topApp.reason}</p>
+                )}
+              </div>
+
+              {recommendation.keyInsights.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Insights</h3>
+                  <ul className="space-y-1">
+                    {recommendation.keyInsights.map((insight, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                        {insight}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendation.improvementThemes.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Improvement Themes</h3>
+                  <ul className="space-y-1">
+                    {recommendation.improvementThemes.map((theme, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                        {theme}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mb-8">
+            <h2 className="mb-4 text-lg font-semibold text-zinc-200">Analysis History</h2>
+            {historyLoading ? (
+              <div className="text-sm text-zinc-500">Loading history...</div>
+            ) : historyReports.length === 0 ? (
+              <div className="text-sm text-zinc-500">No previous analyses. Click &ldquo;Launch AI Analysis&rdquo; to create one.</div>
+            ) : (
+              <div className="space-y-2">
+                {historyReports.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-zinc-800 bg-zinc-900/30">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <button
+                        onClick={() => expandReport(r.id)}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 w-4"
+                      >
+                        {expandedReportId === r.id ? "▼" : "▶"}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-zinc-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                          <span className="text-xs text-zinc-600">·</span>
+                          <span className="text-xs text-zinc-500 truncate">{filterLabel(r)}</span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500">
+                          {r.analyzedCount.toLocaleString()} apps · {r.recommendedCategory}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => rerunReport(r.id)}
+                        disabled={rerunningMap[r.id]}
+                        className="shrink-0 rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {rerunningMap[r.id] ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+                            Rerunning...
+                          </span>
+                        ) : (
+                          "Rerun"
+                        )}
+                      </button>
+                    </div>
+                    {expandedReportId === r.id && (
+                      <div className="border-t border-zinc-800 px-4 py-4">
+                        {expandingId === r.id ? (
+                          <div className="text-sm text-zinc-500">Loading...</div>
+                        ) : expandedReportDetail && expandedReportDetail.id === r.id ? (
+                          <div>
+                            <div className="mb-3 flex flex-wrap gap-4">
+                              <div className="rounded-lg border border-emerald-800 bg-emerald-900/20 px-3 py-2">
+                                <div className="text-xs text-zinc-500">Recommended Category</div>
+                                <div className="text-sm font-semibold text-emerald-400">{expandedReportDetail.recommendation.recommendedCategory}</div>
+                              </div>
+                            </div>
+                            <div className="mb-3 rounded-lg border border-zinc-700 p-3">
+                              <div className="text-xs text-zinc-500 mb-1">Top App to Study</div>
+                              <div className="text-sm font-medium text-zinc-200">{expandedReportDetail.recommendation.topApp.name}</div>
+                              {expandedReportDetail.recommendation.topApp.reason && (
+                                <p className="mt-1 text-sm text-zinc-400">{expandedReportDetail.recommendation.topApp.reason}</p>
+                              )}
+                            </div>
+                            {expandedReportDetail.recommendation.keyInsights.length > 0 && (
+                              <div className="mb-3">
+                                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Insights</h3>
+                                <ul className="space-y-1">
+                                  {expandedReportDetail.recommendation.keyInsights.map((insight, i) => (
+                                    <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                                      {insight}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {expandedReportDetail.recommendation.improvementThemes.length > 0 && (
+                              <div>
+                                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Improvement Themes</h3>
+                                <ul className="space-y-1">
+                                  {expandedReportDetail.recommendation.improvementThemes.map((theme, i) => (
+                                    <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                                      {theme}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="mt-3 text-xs text-zinc-500">
+                              Model: {expandedReportDetail.modelName}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

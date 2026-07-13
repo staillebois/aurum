@@ -47,6 +47,25 @@ model Review {
   @@index([appId])
 }
 
+model AIAnalyticsReport {
+  id                    String   @id @default(cuid())
+  filterMinMrr          Float?
+  filterMaxMrr          Float?
+  filterMinScore        Float?
+  filterMaxScore        Float?
+  filterMinDownloads    Int?
+  filterMaxDownloads    Int?
+  filterMaxApps         Int?
+  analyzedCount         Int
+  recommendedCategory   String
+  topAppName            String
+  topAppReason          String
+  keyInsights           String
+  improvementThemes     String
+  modelName             String
+  createdAt             DateTime @default(now())
+}
+
 model Competitor {
   id            String  @id @default(cuid())
   appId         String
