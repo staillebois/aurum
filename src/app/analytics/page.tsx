@@ -80,7 +80,12 @@ function AnalyticsContent() {
   const [expandedReportDetail, setExpandedReportDetail] = useState<HistoryReportDetail | null>(null)
   const [expandingId, setExpandingId] = useState<string | null>(null)
   const [rerunningMap, setRerunningMap] = useState<Record<string, boolean>>({})
+  const [mounted, setMounted] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(true)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const paramMinMrr = searchParams.get("minMrr") ?? ""
   const paramMaxMrr = searchParams.get("maxMrr") ?? ""
@@ -242,7 +247,7 @@ function AnalyticsContent() {
         <div className="flex items-center gap-3">
             <button
               onClick={runAnalysis}
-              disabled={analyzing || !data || data.apps.length === 0}
+              disabled={!mounted || analyzing || !data || data.apps.length === 0}
               className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {analyzing ? (
