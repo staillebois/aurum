@@ -162,7 +162,13 @@ async function main() {
       aiSummary: null,
       ...(cleanedAppIds ? { id: { in: cleanedAppIds } } : {}),
     },
-    include: { reviews: true },
+    include: {
+      reviews: {
+        select: { text: true },
+        take: 20,
+        orderBy: { createdAt: "desc" },
+      },
+    },
     orderBy: { estimatedMrr: "desc" },
     skip: cleanedAppIds ? 0 : (explicitOffset ?? 0),
     take: limit ?? undefined,
@@ -210,9 +216,8 @@ async function main() {
         renderProgress(`analyzing ${app.name}...`);
 
         const reviewTexts = app.reviews
-          .filter((r) => r.text.length > 20)
-          .slice(0, 20)
-          .map((r) => r.text);
+          .map((r) => r.text)
+          .filter((t) => t.length > 20);
 
         const analysis = await analyzeApp(app.name, app.description, reviewTexts, activeModel);
 

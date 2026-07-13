@@ -82,6 +82,8 @@ export default function AppDetailPage({
   const [app, setApp] = useState<AppDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/apps/${id}`)
@@ -98,6 +100,42 @@ export default function AppDetailPage({
         setLoading(false)
       })
   }, [id])
+
+  const runAnalysis = () => {
+    if (analyzing) return
+    setAnalyzing(true)
+    setAnalysisError(null)
+
+    fetch(`/api/apps/${id}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((d) => {
+        setApp((prev) =>
+          prev
+            ? {
+                ...prev,
+                aiAnalysis: {
+                  summary: d.analysis.summary,
+                  painPoints: d.analysis.painPoints,
+                  improvements: d.analysis.improvements,
+                  modelName: d.modelName,
+                  analyzedAt: new Date().toISOString(),
+                },
+              }
+            : prev,
+        )
+        setAnalyzing(false)
+      })
+      .catch((err: Error) => {
+        setAnalysisError(err.message)
+        setAnalyzing(false)
+      })
+  }
 
   if (loading) {
     return (
@@ -120,9 +158,25 @@ export default function AppDetailPage({
 
   return (
     <div className="mx-auto min-h-full max-w-4xl p-6">
-      <Link href={returnUrl} className="mb-4 inline-block text-sm text-blue-600 hover:underline dark:text-blue-400">
-        &larr; Back to Dashboard
-      </Link>
+      <div className="mb-4 flex items-center justify-between">
+        <Link href={returnUrl} className="inline-block text-sm text-blue-600 hover:underline dark:text-blue-400">
+          &larr; Back to Dashboard
+        </Link>
+        <button
+          onClick={runAnalysis}
+          disabled={analyzing}
+          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {analyzing ? (
+            <span className="flex items-center gap-2">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+              Analyzing...
+            </span>
+          ) : (
+            "Launch AI Analysis"
+          )}
+        </button>
+      </div>
 
       <div className="mb-8 flex items-start gap-4">
         <Image src={app.icon} alt={app.name} className="h-16 w-16 rounded-2xl" width={64} height={64} unoptimized />
@@ -185,6 +239,18 @@ export default function AppDetailPage({
           </div>
         </div>
       </div>
+
+      {analysisError && (
+        <div className="mb-8 rounded-lg border border-red-800 bg-red-900/20 p-4">
+          <p className="text-sm text-red-400">Analysis failed: {analysisError}</p>
+          <button
+            onClick={runAnalysis}
+            className="mt-2 text-xs text-red-300 hover:text-red-200 underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {app.aiAnalysis && (
         <div className="mb-8 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
