@@ -9,6 +9,9 @@ import {
   MonetizationChart,
   ScoreDistributionChart,
   DownloadsVsMrrChart,
+  RatingDistributionChart,
+  CategoryAvgRatingChart,
+  RatingVsMrrChart,
 } from '@/components/charts'
 import type { OpportunityRecommendation } from '@/lib/ai-analytics'
 
@@ -45,9 +48,10 @@ interface HistoryReportDetail {
 }
 
 interface AnalyticsData {
-  categoryStats: { category: string; avgMrr: number; count: number; maxMrr: number }[]
+  categoryStats: { category: string; avgMrr: number; avgRating: number; avgScore: number; count: number; maxMrr: number }[]
   monetizationStats: { model: string; count: number; avgMrr: number }[]
   scoreDistribution: { range: string; count: number }[]
+  ratingDistribution: { rating: string; count: number }[]
   apps: {
     name: string
     category: string
@@ -290,8 +294,15 @@ function AnalyticsContent() {
             <MonetizationChart data={data.monetizationStats} />
             <ScoreDistributionChart data={data.scoreDistribution} />
           </div>
+          <div className="mb-8 grid gap-6 lg:grid-cols-2">
+            <RatingDistributionChart data={data.ratingDistribution} />
+            <CategoryAvgRatingChart data={data.categoryStats} />
+          </div>
 
           <h2 className="mb-4 text-lg font-semibold text-zinc-200">By App</h2>
+          <div className="mb-8">
+            <RatingVsMrrChart data={data.apps} />
+          </div>
           <div className="mb-8">
             <ScoreVsMrrChart data={data.apps} />
           </div>

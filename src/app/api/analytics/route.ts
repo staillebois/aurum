@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     prisma.app.groupBy({
       by: ["category"],
       _count: { category: true },
-      _avg: { estimatedMrr: true },
+      _avg: { estimatedMrr: true, rating: true, opportunityScore: true },
       _max: { estimatedMrr: true },
       orderBy: { _avg: { estimatedMrr: "desc" } },
       where,
@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
     category: c.category,
     count: c._count.category,
     avgMrr: c._avg.estimatedMrr ?? 0,
+    avgRating: c._avg.rating ?? 0,
+    avgScore: c._avg.opportunityScore ?? 0,
     maxMrr: c._max.estimatedMrr ?? 0,
   }));
 
@@ -112,6 +114,15 @@ export async function GET(request: NextRequest) {
 
   const scoreDistribution = Object.entries(scoreBuckets).map(([range, count]) => ({ range, count }));
 
+  const ratingBuckets = Array.from({ length: 5 }, (_, i) => ({
+    rating: `${i + 1}★`,
+    count: 0,
+  }));
+  for (const app of allApps) {
+    const r = Math.round(app.rating);
+    if (r >= 1 && r <= 5) ratingBuckets[r - 1].count++;
+  }
+
   const filteredApps = allApps
     .filter((a) => a.estimatedMrr !== null && a.estimatedMrr > 0)
     .sort((a, b) => (b.estimatedMrr ?? 0) - (a.estimatedMrr ?? 0))
@@ -132,6 +143,7 @@ export async function GET(request: NextRequest) {
     categoryStats: categoryStatsFormatted,
     monetizationStats,
     scoreDistribution,
+    ratingDistribution: ratingBuckets,
     apps: filteredApps,
     totalApps: allApps.length,
     displayCount: filteredApps.length,
