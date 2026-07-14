@@ -7,7 +7,7 @@ import {
   ScoreVsMrrChart,
   TopAppsChart,
   MonetizationChart,
-  ScoreDistributionChart,
+  CategoryDistributionChart,
   DownloadsVsMrrChart,
   RatingDistributionChart,
   CategoryAvgRatingChart,
@@ -50,7 +50,6 @@ interface HistoryReportDetail {
 interface AnalyticsData {
   categoryStats: { category: string; avgMrr: number; avgRating: number; avgScore: number; count: number; maxMrr: number }[]
   monetizationStats: { model: string; count: number; avgMrr: number }[]
-  scoreDistribution: { range: string; count: number }[]
   ratingDistribution: { rating: string; count: number }[]
   apps: {
     name: string
@@ -292,7 +291,7 @@ function AnalyticsContent() {
           <div className="mb-8 grid gap-6 lg:grid-cols-3">
             <CategoryMrrChart data={data.categoryStats} />
             <MonetizationChart data={data.monetizationStats} />
-            <ScoreDistributionChart data={data.scoreDistribution} />
+            <CategoryDistributionChart data={data.categoryStats} />
           </div>
           <div className="mb-8 grid gap-6 lg:grid-cols-2">
             <RatingDistributionChart data={data.ratingDistribution} />

@@ -37,39 +37,60 @@ export async function GET(request: NextRequest) {
     where.downloads = range;
   }
 
-  const [categoryStats, allApps] = await Promise.all([
-    prisma.app.groupBy({
-      by: ["category"],
-      _count: { category: true },
-      _avg: { estimatedMrr: true, rating: true, opportunityScore: true },
-      _max: { estimatedMrr: true },
-      orderBy: { _avg: { estimatedMrr: "desc" } },
-      where,
-    }),
-    prisma.app.findMany({
-      where,
-      select: {
-        name: true,
-        category: true,
-        estimatedMrr: true,
-        opportunityScore: true,
-        downloads: true,
-        price: true,
-        hasIap: true,
-        hasSubscriptions: true,
-        rating: true,
-      },
-    }),
-  ]);
+  const allApps = await prisma.app.findMany({
+    where,
+    select: {
+      name: true,
+      category: true,
+      estimatedMrr: true,
+      opportunityScore: true,
+      downloads: true,
+      price: true,
+      hasIap: true,
+      hasSubscriptions: true,
+      rating: true,
+    },
+  });
 
-  const categoryStatsFormatted = categoryStats.map((c) => ({
-    category: c.category,
-    count: c._count.category,
-    avgMrr: c._avg.estimatedMrr ?? 0,
-    avgRating: c._avg.rating ?? 0,
-    avgScore: c._avg.opportunityScore ?? 0,
-    maxMrr: c._max.estimatedMrr ?? 0,
-  }));
+  const filteredApps = allApps
+    .filter((a) => a.estimatedMrr !== null && a.estimatedMrr > 0)
+    .sort((a, b) => (b.estimatedMrr ?? 0) - (a.estimatedMrr ?? 0))
+    .slice(0, maxApps)
+    .map((a) => ({
+      name: a.name,
+      category: a.category,
+      estimatedMrr: a.estimatedMrr ?? 0,
+      opportunityScore: a.opportunityScore ?? 0,
+      downloads: a.downloads,
+      price: a.price,
+      hasIap: a.hasIap,
+      hasSubscriptions: a.hasSubscriptions,
+      rating: a.rating,
+    }));
+
+  const categoryMap: Record<string, { count: number; mrrSum: number; ratingSum: number; scoreSum: number; maxMrr: number }> = {};
+  for (const app of filteredApps) {
+    if (!categoryMap[app.category]) {
+      categoryMap[app.category] = { count: 0, mrrSum: 0, ratingSum: 0, scoreSum: 0, maxMrr: 0 };
+    }
+    const c = categoryMap[app.category];
+    c.count++;
+    c.mrrSum += app.estimatedMrr;
+    c.ratingSum += app.rating;
+    c.scoreSum += app.opportunityScore;
+    if (app.estimatedMrr > c.maxMrr) c.maxMrr = app.estimatedMrr;
+  }
+
+  const categoryStats = Object.entries(categoryMap)
+    .map(([category, c]) => ({
+      category,
+      count: c.count,
+      avgMrr: Math.round(c.mrrSum / c.count),
+      avgRating: c.ratingSum / c.count,
+      avgScore: c.scoreSum / c.count,
+      maxMrr: c.maxMrr,
+    }))
+    .sort((a, b) => b.avgMrr - a.avgMrr);
 
   const monetizationBuckets: Record<string, { count: number; mrrSum: number }> = {
     "Free + IAP": { count: 0, mrrSum: 0 },
@@ -77,8 +98,8 @@ export async function GET(request: NextRequest) {
     "Paid + IAP": { count: 0, mrrSum: 0 },
   };
 
-  for (const app of allApps) {
-    const mrr = app.estimatedMrr ?? 0;
+  for (const app of filteredApps) {
+    const mrr = app.estimatedMrr;
     if (app.price > 0 && app.hasIap) {
       monetizationBuckets["Paid + IAP"].count++;
       monetizationBuckets["Paid + IAP"].mrrSum += mrr;
@@ -97,52 +118,18 @@ export async function GET(request: NextRequest) {
     avgMrr: data.count > 0 ? Math.round(data.mrrSum / data.count) : 0,
   }));
 
-  const scoreBuckets: Record<string, number> = {};
-  for (let i = 0; i <= 90; i += 10) {
-    scoreBuckets[`${i}-${i + 10}`] = 0;
-  }
-
-  for (const app of allApps) {
-    const score = app.opportunityScore;
-    if (score === null || score === undefined) continue;
-    const bucket = Math.min(Math.floor(score / 10) * 10, 90);
-    const key = `${bucket}-${bucket + 10}`;
-    if (scoreBuckets[key] !== undefined) {
-      scoreBuckets[key]++;
-    }
-  }
-
-  const scoreDistribution = Object.entries(scoreBuckets).map(([range, count]) => ({ range, count }));
-
   const ratingBuckets = Array.from({ length: 5 }, (_, i) => ({
     rating: `${i + 1}★`,
     count: 0,
   }));
-  for (const app of allApps) {
+  for (const app of filteredApps) {
     const r = Math.round(app.rating);
     if (r >= 1 && r <= 5) ratingBuckets[r - 1].count++;
   }
 
-  const filteredApps = allApps
-    .filter((a) => a.estimatedMrr !== null && a.estimatedMrr > 0)
-    .sort((a, b) => (b.estimatedMrr ?? 0) - (a.estimatedMrr ?? 0))
-    .slice(0, maxApps)
-    .map((a) => ({
-      name: a.name,
-      category: a.category,
-      estimatedMrr: a.estimatedMrr ?? 0,
-      opportunityScore: a.opportunityScore ?? 0,
-      downloads: a.downloads,
-      price: a.price,
-      hasIap: a.hasIap,
-      hasSubscriptions: a.hasSubscriptions,
-      rating: a.rating,
-    }));
-
   return Response.json({
-    categoryStats: categoryStatsFormatted,
+    categoryStats,
     monetizationStats,
-    scoreDistribution,
     ratingDistribution: ratingBuckets,
     apps: filteredApps,
     totalApps: allApps.length,
