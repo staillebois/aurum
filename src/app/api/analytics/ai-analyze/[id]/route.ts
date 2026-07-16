@@ -1,8 +1,29 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { analyzeOpportunity } from "@/lib/ai-analytics";
+import { analyzeOpportunity, validateTopApps } from "@/lib/ai-analytics";
 
 export const dynamic = "force-dynamic";
+
+const ANALYSIS_VERSION = 3;
+
+function tryParseJson(value: string | null): unknown {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractExtendedFields(obj: any) {
+  return {
+    marketOverview: (obj.marketOverview as string) ?? null,
+    categoryReason: (obj.categoryReason as string) ?? null,
+    topApps: obj.topApps ? JSON.stringify(obj.topApps) : null,
+    monetizationAdvice: (obj.monetizationAdvice as string) ?? null,
+    differentiationOpps: obj.differentiationOpportunities ? JSON.stringify(obj.differentiationOpportunities) : null,
+    riskFactors: obj.riskFactors ? JSON.stringify(obj.riskFactors) : null,
+    featurePriorities: obj.featurePriorities ? JSON.stringify(obj.featurePriorities) : null,
+    targetAudience: (obj.targetAudience as string) ?? null,
+  };
+}
 
 export async function GET(
   _request: NextRequest,
@@ -34,8 +55,18 @@ export async function GET(
       topApp: { name: report.topAppName, reason: report.topAppReason },
       keyInsights: JSON.parse(report.keyInsights),
       improvementThemes: JSON.parse(report.improvementThemes),
+      marketOverview: report.marketOverview,
+      categoryReason: report.categoryReason,
+      topApps: (tryParseJson(report.topApps) as Array<{ name: string; mrr: number; score: number; reason: string }>) ?? [],
+      monetizationAdvice: report.monetizationAdvice,
+      differentiationOpportunities: (tryParseJson(report.differentiationOpps) as string[]) ?? [],
+      riskFactors: (tryParseJson(report.riskFactors) as string[]) ?? [],
+      featurePriorities: (tryParseJson(report.featurePriorities) as string[]) ?? [],
+      targetAudience: report.targetAudience,
     },
     modelName: report.modelName,
+    analysisDurationMs: report.analysisDurationMs,
+    analysisVersion: report.analysisVersion,
   });
 }
 
@@ -44,6 +75,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const startTime = Date.now();
 
   const original = await prisma.aIAnalyticsReport.findUnique({ where: { id } });
 
@@ -78,6 +110,7 @@ export async function POST(
     select: {
       name: true,
       category: true,
+      publisher: true,
       estimatedMrr: true,
       opportunityScore: true,
       downloads: true,
@@ -85,16 +118,19 @@ export async function POST(
       hasIap: true,
       hasSubscriptions: true,
       rating: true,
+      _count: { select: { competitors: true } },
     },
     orderBy: { opportunityScore: "desc" },
     take: maxApps,
   });
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const filtered = apps
-    .filter((a) => a.estimatedMrr !== null && a.estimatedMrr > 0)
-    .map((a) => ({
+    .filter((a: any) => a.estimatedMrr !== null && a.estimatedMrr > 0)
+    .map((a: any) => ({
       name: a.name,
       category: a.category,
+      publisher: a.publisher,
       estimatedMrr: a.estimatedMrr ?? 0,
       opportunityScore: a.opportunityScore ?? 0,
       downloads: a.downloads,
@@ -102,7 +138,9 @@ export async function POST(
       hasIap: a.hasIap,
       hasSubscriptions: a.hasSubscriptions,
       rating: a.rating,
+      competitorCount: a._count?.competitors ?? 0,
     }));
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   if (filtered.length === 0) {
     return Response.json({
@@ -128,6 +166,24 @@ export async function POST(
 
   const { recommendation, modelName } = await analyzeOpportunity(filtered, filterDesc);
 
+  const validNames = filtered.map((a) => a.name);
+  const validated = validateTopApps(recommendation.topApps, recommendation.topApp, validNames, filtered);
+  recommendation.topApps = validated.topApps;
+  recommendation.topApp = validated.topApp;
+
+  const appNames = recommendation.topApps.map((a) => a.name);
+  if (appNames.length > 0) {
+    const dbApps = await prisma.app.findMany({
+      where: { name: { in: appNames } },
+      select: { name: true, estimatedMrr: true, opportunityScore: true, rating: true, downloads: true },
+    });
+    const dbMap = new Map(dbApps.map((a) => [a.name, a]));
+    recommendation.topApps = recommendation.topApps.map((a) => {
+      const db = dbMap.get(a.name);
+      return { ...a, mrr: db?.estimatedMrr ?? a.mrr, score: db?.opportunityScore ?? a.score, rating: db?.rating ?? 0, downloads: db?.downloads ?? 0 };
+    });
+  }
+
   const report = await prisma.aIAnalyticsReport.create({
     data: {
       filterMinMrr: original.filterMinMrr,
@@ -143,6 +199,9 @@ export async function POST(
       topAppReason: recommendation.topApp.reason,
       keyInsights: JSON.stringify(recommendation.keyInsights),
       improvementThemes: JSON.stringify(recommendation.improvementThemes),
+      ...extractExtendedFields(recommendation),
+      analysisDurationMs: Date.now() - startTime,
+      analysisVersion: ANALYSIS_VERSION,
       modelName,
     },
   });

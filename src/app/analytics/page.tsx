@@ -14,6 +14,7 @@ import {
   RatingVsMrrChart,
 } from '@/components/charts'
 import type { OpportunityRecommendation } from '@/lib/ai-analytics'
+import AIAnalysisResult from '@/components/ai-analysis/AIAnalysisResult'
 
 interface HistoryReportSummary {
   id: string
@@ -45,6 +46,8 @@ interface HistoryReportDetail {
   analyzedCount: number
   recommendation: OpportunityRecommendation
   modelName: string
+  analysisDurationMs?: number
+  analysisVersion?: number
 }
 
 interface AnalyticsData {
@@ -73,22 +76,14 @@ function AnalyticsContent() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refetching, setRefetching] = useState(false)
-  const [recommendation, setRecommendation] = useState<OpportunityRecommendation | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
-  const [analyzedCount, setAnalyzedCount] = useState(0)
-  const [modelName, setModelName] = useState<string | null>(null)
   const [historyReports, setHistoryReports] = useState<HistoryReportSummary[]>([])
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null)
   const [expandedReportDetail, setExpandedReportDetail] = useState<HistoryReportDetail | null>(null)
   const [expandingId, setExpandingId] = useState<string | null>(null)
   const [rerunningMap, setRerunningMap] = useState<Record<string, boolean>>({})
-  const [mounted, setMounted] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(true)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const paramMinMrr = searchParams.get("minMrr") ?? ""
   const paramMaxMrr = searchParams.get("maxMrr") ?? ""
@@ -173,12 +168,10 @@ function AnalyticsContent() {
         return res.json()
       })
       .then((d) => {
-        setRecommendation(d.recommendation)
-        setAnalyzedCount(d.analyzedCount)
-        setModelName(d.modelName ?? null)
         setAnalysisError(null)
         setRerunningMap((prev) => ({ ...prev, [id]: false }))
         fetchHistory()
+        expandReport(d.id)
       })
       .catch((err: Error) => {
         setAnalysisError(err.message)
@@ -202,7 +195,6 @@ function AnalyticsContent() {
     if (analyzing || !data || data.apps.length === 0) return
     setAnalyzing(true)
     setAnalysisError(null)
-    setRecommendation(null)
 
     const body: Record<string, string> = {}
     if (paramMinMrr) body.minMrr = paramMinMrr
@@ -223,11 +215,9 @@ function AnalyticsContent() {
         return res.json()
       })
       .then((d) => {
-        setRecommendation(d.recommendation)
-        setAnalyzedCount(d.analyzedCount)
-        setModelName(d.modelName ?? null)
         setAnalyzing(false)
         fetchHistory()
+        expandReport(d.id)
       })
       .catch((err: Error) => {
         setAnalysisError(err.message)
@@ -250,7 +240,7 @@ function AnalyticsContent() {
         <div className="flex items-center gap-3">
             <button
               onClick={runAnalysis}
-              disabled={!mounted || analyzing || !data || data.apps.length === 0}
+              disabled={analyzing || !data || data.apps.length === 0}
               className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {analyzing ? (
@@ -322,58 +312,6 @@ function AnalyticsContent() {
             </div>
           )}
 
-          {recommendation && (
-            <div className="mb-8 rounded-lg border border-zinc-700 bg-zinc-900/50 p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-zinc-200">AI Opportunity Analysis</h2>
-                <span className="text-xs text-zinc-500">Based on {analyzedCount.toLocaleString()} apps{modelName ? ` · ${modelName}` : ""}</span>
-              </div>
-
-              <div className="mb-4 flex flex-wrap gap-4">
-                <div className="rounded-lg border border-emerald-800 bg-emerald-900/20 px-3 py-2">
-                  <div className="text-xs text-zinc-500">Recommended Category</div>
-                  <div className="text-sm font-semibold text-emerald-400">{recommendation.recommendedCategory}</div>
-                </div>
-              </div>
-
-              <div className="mb-4 rounded-lg border border-zinc-700 p-3">
-                <div className="text-xs text-zinc-500 mb-1">Top App to Study</div>
-                <div className="text-sm font-medium text-zinc-200">{recommendation.topApp.name}</div>
-                {recommendation.topApp.reason && (
-                  <p className="mt-1 text-sm text-zinc-400">{recommendation.topApp.reason}</p>
-                )}
-              </div>
-
-              {recommendation.keyInsights.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Insights</h3>
-                  <ul className="space-y-1">
-                    {recommendation.keyInsights.map((insight, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-zinc-300">
-                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                        {insight}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {recommendation.improvementThemes.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Improvement Themes</h3>
-                  <ul className="space-y-1">
-                    {recommendation.improvementThemes.map((theme, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-zinc-300">
-                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                        {theme}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="mb-8">
             <h2 className="mb-4 text-lg font-semibold text-zinc-200">Analysis History</h2>
             {historyLoading ? (
@@ -421,50 +359,11 @@ function AnalyticsContent() {
                         {expandingId === r.id ? (
                           <div className="text-sm text-zinc-500">Loading...</div>
                         ) : expandedReportDetail && expandedReportDetail.id === r.id ? (
-                          <div>
-                            <div className="mb-3 flex flex-wrap gap-4">
-                              <div className="rounded-lg border border-emerald-800 bg-emerald-900/20 px-3 py-2">
-                                <div className="text-xs text-zinc-500">Recommended Category</div>
-                                <div className="text-sm font-semibold text-emerald-400">{expandedReportDetail.recommendation.recommendedCategory}</div>
-                              </div>
-                            </div>
-                            <div className="mb-3 rounded-lg border border-zinc-700 p-3">
-                              <div className="text-xs text-zinc-500 mb-1">Top App to Study</div>
-                              <div className="text-sm font-medium text-zinc-200">{expandedReportDetail.recommendation.topApp.name}</div>
-                              {expandedReportDetail.recommendation.topApp.reason && (
-                                <p className="mt-1 text-sm text-zinc-400">{expandedReportDetail.recommendation.topApp.reason}</p>
-                              )}
-                            </div>
-                            {expandedReportDetail.recommendation.keyInsights.length > 0 && (
-                              <div className="mb-3">
-                                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Key Insights</h3>
-                                <ul className="space-y-1">
-                                  {expandedReportDetail.recommendation.keyInsights.map((insight, i) => (
-                                    <li key={i} className="flex gap-2 text-sm text-zinc-300">
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                                      {insight}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {expandedReportDetail.recommendation.improvementThemes.length > 0 && (
-                              <div>
-                                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Improvement Themes</h3>
-                                <ul className="space-y-1">
-                                  {expandedReportDetail.recommendation.improvementThemes.map((theme, i) => (
-                                    <li key={i} className="flex gap-2 text-sm text-zinc-300">
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                                      {theme}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            <div className="mt-3 text-xs text-zinc-500">
-                              Model: {expandedReportDetail.modelName}
-                            </div>
-                          </div>
+                          <AIAnalysisResult
+                            recommendation={expandedReportDetail.recommendation}
+                            analyzedCount={expandedReportDetail.analyzedCount}
+                            modelName={expandedReportDetail.modelName}
+                          />
                         ) : null}
                       </div>
                     )}

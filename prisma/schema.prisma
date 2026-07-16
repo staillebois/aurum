@@ -48,22 +48,32 @@ model Review {
 }
 
 model AIAnalyticsReport {
-  id                    String   @id @default(cuid())
-  filterMinMrr          Float?
-  filterMaxMrr          Float?
-  filterMinScore        Float?
-  filterMaxScore        Float?
-  filterMinDownloads    Int?
-  filterMaxDownloads    Int?
-  filterMaxApps         Int?
-  analyzedCount         Int
-  recommendedCategory   String
-  topAppName            String
-  topAppReason          String
-  keyInsights           String
-  improvementThemes     String
-  modelName             String
-  createdAt             DateTime @default(now())
+  id                       String   @id @default(cuid())
+  filterMinMrr             Float?
+  filterMaxMrr             Float?
+  filterMinScore           Float?
+  filterMaxScore           Float?
+  filterMinDownloads       Int?
+  filterMaxDownloads       Int?
+  filterMaxApps            Int?
+  analyzedCount            Int
+  recommendedCategory      String
+  topAppName               String
+  topAppReason             String
+  keyInsights              String
+  improvementThemes        String
+  marketOverview           String?
+  categoryReason           String?
+  topApps                  String?
+  monetizationAdvice       String?
+  differentiationOpps      String?
+  riskFactors              String?
+  featurePriorities        String?
+  targetAudience           String?
+  analysisDurationMs       Int?
+  analysisVersion          Int      @default(1)
+  modelName                String
+  createdAt                DateTime @default(now())
 }
 
 model Competitor {
