@@ -7,6 +7,25 @@ const CONCURRENCY = parseInt(
   process.argv.find(a => a.startsWith("--concurrency="))?.split("=")[1] ?? "5", 10
 );
 
+const searchIndex = process.argv.indexOf("--search");
+const appIdIndex = process.argv.indexOf("--app-id");
+
+const SEARCH_TERM = searchIndex !== -1 ? process.argv[searchIndex + 1] : undefined;
+const APP_ID = appIdIndex !== -1 ? process.argv[appIdIndex + 1] : undefined;
+
+if (SEARCH_TERM !== undefined && APP_ID !== undefined) {
+  console.error("Error: --search and --app-id are mutually exclusive.");
+  process.exit(1);
+}
+if (SEARCH_TERM !== undefined && !SEARCH_TERM) {
+  console.error("Error: --search requires a non-empty search term.");
+  process.exit(1);
+}
+if (APP_ID !== undefined && !APP_ID) {
+  console.error("Error: --app-id requires a non-empty app ID.");
+  process.exit(1);
+}
+
 const TARGET_CATEGORIES = [
   { label: "Art & Design", id: gplay.category.ART_AND_DESIGN },
   { label: "Auto & Vehicles", id: gplay.category.AUTO_AND_VEHICLES },
@@ -190,6 +209,51 @@ async function scoreApp(appId: string, appLabel: string) {
 }
 
 async function crawl() {
+  if (SEARCH_TERM || APP_ID) {
+    console.log("Starting single-app crawl...\n");
+
+    let app: any;
+    if (SEARCH_TERM) {
+      console.log(`Searching for "${SEARCH_TERM}"...`);
+      const results = await gplay.search({
+        term: SEARCH_TERM,
+        num: 1,
+        fullDetail: true,
+        lang: "en",
+        country: "us",
+      });
+      if (!results || results.length === 0) {
+        console.error(`No app found for search term "${SEARCH_TERM}".`);
+        return;
+      }
+      app = results[0];
+    } else {
+      console.log(`Fetching appId "${APP_ID}"...`);
+      try {
+        app = await gplay.app({ appId: APP_ID!, lang: "en", country: "us" });
+      } catch (err) {
+        console.error(`No app found for appId "${APP_ID}": ${(err as Error).message}`);
+        return;
+      }
+    }
+
+    const appLabel = app.title ?? app.appId;
+    console.log(`Found: ${appLabel}`);
+    await saveApp(app);
+    await saveReviews(app.appId, appLabel);
+    await saveCompetitors(app.appId, appLabel);
+    await scoreApp(app.appId, appLabel);
+
+    if (SHOULD_REFRESH) {
+      console.log(`\nRefreshing reviews for ${appLabel}...`);
+      await saveReviews(app.appId, appLabel);
+      console.log("Review refresh complete.");
+    }
+
+    console.log(`\nDone! Imported ${appLabel}.`);
+    return;
+  }
+
   console.log("Starting crawl...\n");
 
   const existing = await prisma.app.findMany({ select: { id: true } });
